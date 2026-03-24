@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+
+import { runSetup } from "./src/setup.mjs";
+import { runStart } from "./src/start.mjs";
+
+function parseArgs(argv) {
+  const args = { _: [] };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (!token.startsWith("--")) {
+      args._.push(token);
+      continue;
+    }
+
+    const [key, inlineValue] = token.slice(2).split("=", 2);
+    if (inlineValue !== undefined) {
+      args[key] = inlineValue;
+      continue;
+    }
+
+    const next = argv[index + 1];
+    if (!next || next.startsWith("--")) {
+      args[key] = true;
+      continue;
+    }
+
+    args[key] = next;
+    index += 1;
+  }
+
+  return args;
+}
+
+function printHelp() {
+  console.log(`
+codex-wechat-channel
+
+Usage:
+  codex-wechat-channel setup [--base-url URL] [--force]
+  codex-wechat-channel start [--cwd DIR] [--model MODEL] [--app-server-url WS_URL]
+  codex-wechat-channel help
+
+Environment:
+  CODEX_BIN                         Codex executable path, default: codex
+  CODEX_WECHAT_CWD                  Workspace for Codex threads, default: current dir
+  CODEX_WECHAT_MODEL                Optional model override
+  CODEX_WECHAT_SANDBOX              read-only | workspace-write | danger-full-access
+  CODEX_WECHAT_APPROVAL_POLICY      default: never
+  CODEX_WECHAT_APP_SERVER_URL       Reuse an existing Codex app-server websocket
+  CODEX_WECHAT_BASE_URL             WeChat ilink API base URL
+  CODEX_WECHAT_DEVELOPER_INSTRUCTIONS
+                                    Extra instructions appended to each Codex thread
+`);
+}
+
+const args = parseArgs(process.argv.slice(2));
+const command = args._[0] ?? "help";
+
+switch (command) {
+  case "setup":
+    await runSetup({
+      baseUrl: args["base-url"],
+      force: Boolean(args.force),
+    });
+    break;
+  case "start":
+    await runStart({
+      cwd: args.cwd,
+      model: args.model,
+      appServerUrl: args["app-server-url"],
+      baseUrl: args["base-url"],
+      sandbox: args.sandbox,
+      approvalPolicy: args["approval-policy"],
+    });
+    break;
+  case "help":
+  case "--help":
+  case "-h":
+    printHelp();
+    break;
+  default:
+    console.error(`Unknown command: ${command}`);
+    printHelp();
+    process.exit(1);
+}

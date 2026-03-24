@@ -1,0 +1,26 @@
+{
+  "name": "codex-wechat-channel",
+  "version": "0.1.0",
+  "description": "Bridge WeChat ClawBot messages into Codex app-server threads",
+  "type": "module",
+  "bin": {
+    "codex-wechat-channel": "./cli.mjs"
+  },
+  "scripts": {
+    "start": "node cli.mjs start",
+    "setup": "node cli.mjs setup",
+    "check": "node --check cli.mjs && node --check src/constants.mjs && node --check src/wechat-api.mjs && node --check src/codex-app-server.mjs && node --check src/setup.mjs && node --check src/start.mjs && node --check scripts/probe-app-server.mjs",
+    "probe": "node scripts/probe-app-server.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "codex",
+    "wechat",
+    "channel",
+    "app-server",
+    "openai"
+  ],
+  "license": "MIT"
+}

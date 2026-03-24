@@ -1,0 +1,6 @@
+node_modules/
+.tmp/
+.reference/
+.codex-schema/
+.codex-json-schema/
+sshmcp.log
