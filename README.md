@@ -32,10 +32,41 @@ WeChat (ClawBot)
 
 ## 快速开始
 
+### 安装方式
+
+推荐直接运行：
+
+```bash
+npx codex-wechat-channel help
+```
+
+如果你想长期使用：
+
+```bash
+npm install -g codex-wechat-channel
+codex-wechat-channel help
+```
+
+在本地仓库开发时，仍可继续使用 `node cli.mjs ...` 或 `npm run ...`。
+
+### 发布为 npm 包
+
+```bash
+npm login
+npm pack
+npm publish --access public
+```
+
+发布后即可直接使用：
+
+```bash
+npx codex-wechat-channel help
+```
+
 ### 1. 微信扫码登录
 
 ```bash
-node cli.mjs setup
+codex-wechat-channel setup
 ```
 
 凭据会保存在：
@@ -47,25 +78,51 @@ node cli.mjs setup
 ### 2. 启动桥接
 
 ```bash
-node cli.mjs start
+codex-wechat-channel start
 ```
 
 如果需要指定工作目录或模型：
 
 ```bash
-node cli.mjs start --cwd D:\workspace\myrepo --model gpt-5.4
+codex-wechat-channel start --cwd D:\workspace\myrepo --model gpt-5.4
 ```
 
 ### 3. 探活 Codex app-server
 
 ```bash
-node scripts/probe-app-server.mjs
+codex-wechat-channel probe
 ```
 
 预期输出：
 
 ```text
 PONG
+```
+
+## 运维快捷命令
+
+如果你想把桥接放到后台运行，可直接使用：
+
+```bash
+codex-wechat-channel bridge start
+codex-wechat-channel bridge status
+codex-wechat-channel probe
+codex-wechat-channel bridge stop
+```
+
+需要透传启动参数时：
+
+```bash
+codex-wechat-channel bridge start --cwd D:\workspace\myrepo --model gpt-5.4
+```
+
+如果你是在本地仓库内开发，也可以继续用：
+
+```bash
+npm run bridge:start
+npm run bridge:status
+npm run bridge:probe
+npm run bridge:stop
 ```
 
 ## 常用环境变量
@@ -87,10 +144,17 @@ OPENAI_API_KEY=sk-...
 项目会在 `~/.codex/channels/wechat/` 下维护：
 
 - `account.json`：微信 bot token
+- `bridge.pid`：后台桥接进程 PID
+- `bridge.stdout.log`：后台桥接标准输出
+- `bridge.stderr.log`：后台桥接标准错误
 - `context_tokens.json`：WeChat reply context
 - `threads.json`：conversation -> Codex thread 映射
 - `sync_buf.txt`：微信 long polling 游标
 - `media/`：下载下来的图片附件
+
+## 发布说明
+
+- [2026-03-25 bin 包发布、鉴权回退与后台控制脚本](./docs/releases/2026-03-25-auth-fallback-and-bridgectl.md)
 
 ## 注意事项
 

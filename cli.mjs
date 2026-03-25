@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { runBridgeCtl } from "./scripts/bridgectl.mjs";
+import { runProbe } from "./scripts/probe-app-server.mjs";
 import { runSetup } from "./src/setup.mjs";
 import { runStart } from "./src/start.mjs";
 
@@ -39,6 +41,8 @@ codex-wechat-channel
 Usage:
   codex-wechat-channel setup [--base-url URL] [--force]
   codex-wechat-channel start [--cwd DIR] [--model MODEL] [--app-server-url WS_URL]
+  codex-wechat-channel probe
+  codex-wechat-channel bridge <start|status|stop> [--cwd DIR] [--model MODEL]
   codex-wechat-channel help
 
 Environment:
@@ -54,7 +58,8 @@ Environment:
 `);
 }
 
-const args = parseArgs(process.argv.slice(2));
+const rawArgv = process.argv.slice(2);
+const args = parseArgs(rawArgv);
 const command = args._[0] ?? "help";
 
 switch (command) {
@@ -73,6 +78,12 @@ switch (command) {
       sandbox: args.sandbox,
       approvalPolicy: args["approval-policy"],
     });
+    break;
+  case "probe":
+    await runProbe();
+    break;
+  case "bridge":
+    await runBridgeCtl(rawArgv.slice(1));
     break;
   case "help":
   case "--help":

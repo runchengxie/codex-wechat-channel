@@ -46,11 +46,19 @@ WeChat ilink API
 - [x] 实现图片消息下载并转为 `localImage` 输入
 - [x] 加入 `scripts/probe-app-server.mjs` 自检脚本
 - [x] 修复 Windows 下 embedded app-server 子进程回收问题
+- [x] 缺失 `OPENAI_API_KEY` 时回退读取 `~/.codex/auth.json`
+- [x] 实现后台桥接控制：`bridge start/status/stop`
+- [x] 把 `probe` 与 `bridge` 收敛为正式 CLI 子命令
+- [x] 补齐 npm 包发布元数据，可作为 `bin` 包发布
 
 ### 当前验证结果
 
 - `npm run check`：通过
-- `node scripts/probe-app-server.mjs`：输出 `PONG`
+- `codex-wechat-channel probe`：输出 `PONG`
+- 微信扫码登录：通过
+- 微信消息桥接闭环：通过
+- `npm pack`：通过
+- `npx --yes --package .\\codex-wechat-channel-0.1.0.tgz codex-wechat-channel help`：通过
 
 ## 后续可扩展项
 

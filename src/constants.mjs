@@ -21,6 +21,9 @@ export const DEFAULT_DATA_DIR = path.join(
 export const PATHS = {
   dataDir: DEFAULT_DATA_DIR,
   account: path.join(DEFAULT_DATA_DIR, "account.json"),
+  bridgePid: path.join(DEFAULT_DATA_DIR, "bridge.pid"),
+  bridgeStderr: path.join(DEFAULT_DATA_DIR, "bridge.stderr.log"),
+  bridgeStdout: path.join(DEFAULT_DATA_DIR, "bridge.stdout.log"),
   contextTokens: path.join(DEFAULT_DATA_DIR, "context_tokens.json"),
   threads: path.join(DEFAULT_DATA_DIR, "threads.json"),
   syncBuf: path.join(DEFAULT_DATA_DIR, "sync_buf.txt"),
