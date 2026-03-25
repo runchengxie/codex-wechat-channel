@@ -26,9 +26,9 @@
 本次发布前已实际验证：
 
 - `npm run check`：通过
-- `node --input-type=module -e "import { DEFAULT_SANDBOX, PACKAGE_VERSION } from './src/constants.mjs'; ..."`：输出 `danger-full-access` 与 `0.1.1`
+- `node --input-type=module -e "import { DEFAULT_SANDBOX, PACKAGE_VERSION } from './src/constants.mjs'; ..."`：输出 `danger-full-access` 与 `0.1.2`
 - `npm pack`：通过
-- `npx --yes --package .\\codex-wechat-channel-0.1.1.tgz codex-wechat-channel help`：通过
+- `npx --yes --package .\\codex-wechat-channel-0.1.2.tgz codex-wechat-channel help`：通过
 - 远端 Ubuntu 24.04：
   - 已安装 Node.js `22.22.1`
   - 已安装 `codex-cli 0.116.0`

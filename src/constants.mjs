@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 export const PACKAGE_NAME = "codex-wechat-channel";
-export const PACKAGE_VERSION = "0.1.1";
+export const PACKAGE_VERSION = "0.1.2";
 export const DEFAULT_WECHAT_BASE_URL =
   process.env.CODEX_WECHAT_BASE_URL || "https://ilinkai.weixin.qq.com";
 export const DEFAULT_SANDBOX =

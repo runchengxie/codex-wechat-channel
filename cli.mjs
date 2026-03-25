@@ -2,6 +2,7 @@
 
 import { runBridgeCtl } from "./scripts/bridgectl.mjs";
 import { runProbe } from "./scripts/probe-app-server.mjs";
+import { runServiceCtl } from "./scripts/servicectl.mjs";
 import { runSetup } from "./src/setup.mjs";
 import { runStart } from "./src/start.mjs";
 
@@ -43,6 +44,7 @@ Usage:
   codex-wechat-channel start [--cwd DIR] [--model MODEL] [--app-server-url WS_URL]
   codex-wechat-channel probe
   codex-wechat-channel bridge <start|status|stop> [--cwd DIR] [--model MODEL]
+  codex-wechat-channel service <install|status|uninstall> [--cwd DIR] [--user USER] [--home DIR]
   codex-wechat-channel help
 
 Environment:
@@ -84,6 +86,9 @@ switch (command) {
     break;
   case "bridge":
     await runBridgeCtl(rawArgv.slice(1));
+    break;
+  case "service":
+    await runServiceCtl(rawArgv.slice(1));
     break;
   case "help":
   case "--help":

@@ -51,6 +51,7 @@ WeChat ilink API
 - [x] 把 `probe` 与 `bridge` 收敛为正式 CLI 子命令
 - [x] 补齐 npm 包发布元数据，可作为 `bin` 包发布
 - [x] 默认 `sandbox` 调整为 `danger-full-access`，便于远端无人值守部署
+- [x] 集成 Linux `systemd` 安装命令，支持 bridge 开机自启与递归配置自动重载
 
 ### 当前验证结果
 
@@ -59,8 +60,9 @@ WeChat ilink API
 - 微信扫码登录：通过
 - 微信消息桥接闭环：通过
 - `npm pack`：通过
-- `npx --yes --package .\\codex-wechat-channel-0.1.1.tgz codex-wechat-channel help`：通过
+- `npx --yes --package .\\codex-wechat-channel-0.1.2.tgz codex-wechat-channel help`：通过
 - 远端 Ubuntu 部署：已完成 Node 22、Codex CLI、`codex-wechat-channel` 安装与后台 bridge 启动
+- 远端 Ubuntu `service install`：可安装 `systemd` 服务与 watcher，并在 `config.toml` 与深层 skill 变更后自动重启；重复安装也会强制重载现有 unit
 
 ## 后续可扩展项
 

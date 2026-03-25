@@ -1,6 +1,6 @@
 {
   "name": "codex-wechat-channel",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Bridge WeChat ClawBot messages into Codex app-server threads",
   "type": "module",
   "bin": {
@@ -11,18 +11,23 @@
     "src/",
     "scripts/bridgectl.mjs",
     "scripts/probe-app-server.mjs",
+    "scripts/servicectl.mjs",
+    "scripts/watch-codex-config.sh",
     "docs/",
     "README.md"
   ],
   "scripts": {
     "start": "node cli.mjs start",
     "setup": "node cli.mjs setup",
-    "check": "node --check cli.mjs && node --check src/constants.mjs && node --check src/wechat-api.mjs && node --check src/codex-app-server.mjs && node --check src/setup.mjs && node --check src/start.mjs && node --check scripts/probe-app-server.mjs && node --check scripts/bridgectl.mjs",
+    "check": "node --check cli.mjs && node --check src/constants.mjs && node --check src/wechat-api.mjs && node --check src/codex-app-server.mjs && node --check src/setup.mjs && node --check src/start.mjs && node --check scripts/probe-app-server.mjs && node --check scripts/bridgectl.mjs && node --check scripts/servicectl.mjs",
     "probe": "node cli.mjs probe",
     "bridge:start": "node cli.mjs bridge start",
     "bridge:status": "node cli.mjs bridge status",
     "bridge:stop": "node cli.mjs bridge stop",
-    "bridge:probe": "node cli.mjs probe"
+    "bridge:probe": "node cli.mjs probe",
+    "service:install": "node cli.mjs service install",
+    "service:status": "node cli.mjs service status",
+    "service:uninstall": "node cli.mjs service uninstall"
   },
   "engines": {
     "node": ">=22"

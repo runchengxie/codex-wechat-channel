@@ -108,6 +108,7 @@ codex-wechat-channel bridge start
 codex-wechat-channel bridge status
 codex-wechat-channel probe
 codex-wechat-channel bridge stop
+codex-wechat-channel service install --cwd /home/ubuntu
 ```
 
 需要透传启动参数时：
@@ -123,6 +124,45 @@ npm run bridge:start
 npm run bridge:status
 npm run bridge:probe
 npm run bridge:stop
+```
+
+## Linux systemd 自启与自动重载
+
+如果你在 Linux 服务器上跑 bridge，并且希望：
+
+- 开机自启
+- bridge 异常退出自动拉起
+- 修改 `~/.codex/config.toml`、`~/.codex/AGENTS.md`、`~/.codex/skills/`、`~/.codex/prompts/` 后自动重启 bridge
+
+可以直接执行：
+
+```bash
+sudo codex-wechat-channel service install --cwd /home/ubuntu
+```
+
+如果你是通过 `sudo` 执行，安装命令会优先使用 `SUDO_USER` 对应的用户与 home 目录来写入 `systemd` 配置和 `PIDFile`。如果你的部署用户不是当前 `sudo` 来源，也可以显式覆盖：
+
+```bash
+sudo codex-wechat-channel service install --cwd /srv/repo --user ubuntu --home /home/ubuntu
+```
+
+重复执行 `service install` 会覆盖已有 unit 文件，并强制重启正在运行的 bridge / watcher，让新配置立即生效。
+
+安装后会创建：
+
+- `codex-wechat-channel.service`
+- `codex-wechat-channel-watch.service`
+
+查看状态：
+
+```bash
+codex-wechat-channel service status
+```
+
+卸载：
+
+```bash
+sudo codex-wechat-channel service uninstall
 ```
 
 ## 常用环境变量
@@ -155,6 +195,7 @@ OPENAI_API_KEY=sk-...
 ## 发布说明
 
 - [2026-03-25 默认全权限与远端部署](./docs/releases/2026-03-25-default-danger-full-access.md)
+- [2026-03-25 Linux systemd 自启与配置自动重载](./docs/releases/2026-03-25-systemd-service-and-autoreload.md)
 - [2026-03-25 bin 包发布、鉴权回退与后台控制脚本](./docs/releases/2026-03-25-auth-fallback-and-bridgectl.md)
 
 ## 注意事项
