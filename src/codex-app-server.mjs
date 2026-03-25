@@ -1,11 +1,39 @@
 import { spawn } from "node:child_process";
 import net from "node:net";
+import os from "node:os";
+import path from "node:path";
 
 import {
   DEFAULT_APPROVAL_POLICY,
   DEFAULT_CODEX_BIN,
   DEFAULT_SANDBOX,
+  loadJson,
 } from "./constants.mjs";
+
+function resolveCodexAuthPath() {
+  return path.join(os.homedir(), ".codex", "auth.json");
+}
+
+function readApiKeyFromAuthFile(authPath) {
+  const auth = loadJson(authPath, null);
+  const apiKey = auth?.OPENAI_API_KEY;
+  if (typeof apiKey !== "string") {
+    return null;
+  }
+
+  const trimmed = apiKey.trim();
+  return trimmed || null;
+}
+
+function buildMissingAuthError(authPath) {
+  return new Error(
+    [
+      "Codex authentication missing for embedded app-server.",
+      "Set OPENAI_API_KEY in the environment or run `codex login` so the key is stored at",
+      authPath,
+    ].join(" "),
+  );
+}
 
 function deferred() {
   let resolve;
@@ -99,6 +127,7 @@ export class CodexAppServerClient {
       sandbox: DEFAULT_SANDBOX,
       approvalPolicy: DEFAULT_APPROVAL_POLICY,
       codexBin: DEFAULT_CODEX_BIN,
+      codexAuthPath: resolveCodexAuthPath(),
       serviceName: "codex-wechat-channel",
       ...options,
     };
@@ -109,6 +138,7 @@ export class CodexAppServerClient {
     this.socket = null;
     this.child = null;
     this.closeReason = null;
+    this.launchEnv = null;
   }
 
   log(message) {
@@ -124,6 +154,7 @@ export class CodexAppServerClient {
       return;
     }
 
+    this.launchEnv = this.prepareLaunchEnv();
     const appServerUrl =
       this.options.appServerUrl || (await this.startEmbeddedAppServer());
 
@@ -147,7 +178,7 @@ export class CodexAppServerClient {
     const spawnOptions = {
       shell: process.platform === "win32",
       stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
+      env: this.launchEnv || process.env,
     };
 
     this.log(`starting embedded codex app-server on ${wsUrl}`);
@@ -178,6 +209,29 @@ export class CodexAppServerClient {
 
     await waitForReady(readyUrl, 15_000);
     return wsUrl;
+  }
+
+  prepareLaunchEnv() {
+    if (this.options.appServerUrl) {
+      return process.env;
+    }
+
+    const envApiKey = process.env.OPENAI_API_KEY?.trim();
+    if (envApiKey) {
+      return process.env;
+    }
+
+    const authPath = this.options.codexAuthPath;
+    const apiKey = readApiKeyFromAuthFile(authPath);
+    if (!apiKey) {
+      throw buildMissingAuthError(authPath);
+    }
+
+    this.log(`reusing OPENAI_API_KEY from ${authPath} for embedded app-server`);
+    return {
+      ...process.env,
+      OPENAI_API_KEY: apiKey,
+    };
   }
 
   async openSocket(wsUrl) {

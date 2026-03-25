@@ -4,3 +4,4 @@ node_modules/
 .codex-schema/
 .codex-json-schema/
 sshmcp.log
+.idea/
