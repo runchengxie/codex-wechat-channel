@@ -131,7 +131,7 @@ npm run bridge:stop
 CODEX_BIN=codex
 CODEX_WECHAT_CWD=D:\workspace\repo
 CODEX_WECHAT_MODEL=gpt-5.4
-CODEX_WECHAT_SANDBOX=workspace-write
+CODEX_WECHAT_SANDBOX=danger-full-access
 CODEX_WECHAT_APPROVAL_POLICY=never
 CODEX_WECHAT_APP_SERVER_URL=ws://127.0.0.1:4501
 CODEX_WECHAT_BASE_URL=https://ilinkai.weixin.qq.com
@@ -154,11 +154,12 @@ OPENAI_API_KEY=sk-...
 
 ## 发布说明
 
+- [2026-03-25 默认全权限与远端部署](./docs/releases/2026-03-25-default-danger-full-access.md)
 - [2026-03-25 bin 包发布、鉴权回退与后台控制脚本](./docs/releases/2026-03-25-auth-fallback-and-bridgectl.md)
 
 ## 注意事项
 
 - 默认 `approvalPolicy=never`，因为这是一个无人值守桥。如果你改成需要审批，桥接会卡住。
-- 默认 `sandbox=workspace-write`。若需要更强权限，用 `CODEX_WECHAT_SANDBOX=danger-full-access`。
+- 默认 `sandbox=danger-full-access`，方便远端无人值守运行。若你需要收紧权限，可显式设置 `CODEX_WECHAT_SANDBOX=workspace-write` 或 `read-only`。
 - 若未显式设置 `OPENAI_API_KEY`，embedded app-server 会尝试读取 `~/.codex/auth.json` 中由 `codex login` 保存的 key。
 - WeChat 端仍是纯文本最佳，尽量不要让 Codex 输出 Markdown 表格或长代码块。

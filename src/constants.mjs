@@ -3,11 +3,11 @@ import os from "node:os";
 import path from "node:path";
 
 export const PACKAGE_NAME = "codex-wechat-channel";
-export const PACKAGE_VERSION = "0.1.0";
+export const PACKAGE_VERSION = "0.1.1";
 export const DEFAULT_WECHAT_BASE_URL =
   process.env.CODEX_WECHAT_BASE_URL || "https://ilinkai.weixin.qq.com";
 export const DEFAULT_SANDBOX =
-  process.env.CODEX_WECHAT_SANDBOX || "workspace-write";
+  process.env.CODEX_WECHAT_SANDBOX || "danger-full-access";
 export const DEFAULT_APPROVAL_POLICY =
   process.env.CODEX_WECHAT_APPROVAL_POLICY || "never";
 export const DEFAULT_CODEX_BIN = process.env.CODEX_BIN || "codex";

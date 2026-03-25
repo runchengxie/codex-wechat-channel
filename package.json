@@ -1,6 +1,6 @@
 {
   "name": "codex-wechat-channel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bridge WeChat ClawBot messages into Codex app-server threads",
   "type": "module",
   "bin": {
@@ -9,7 +9,8 @@
   "files": [
     "cli.mjs",
     "src/",
-    "scripts/",
+    "scripts/bridgectl.mjs",
+    "scripts/probe-app-server.mjs",
     "docs/",
     "README.md"
   ],

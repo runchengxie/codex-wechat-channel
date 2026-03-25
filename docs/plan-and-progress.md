@@ -50,6 +50,7 @@ WeChat ilink API
 - [x] 实现后台桥接控制：`bridge start/status/stop`
 - [x] 把 `probe` 与 `bridge` 收敛为正式 CLI 子命令
 - [x] 补齐 npm 包发布元数据，可作为 `bin` 包发布
+- [x] 默认 `sandbox` 调整为 `danger-full-access`，便于远端无人值守部署
 
 ### 当前验证结果
 
@@ -58,7 +59,8 @@ WeChat ilink API
 - 微信扫码登录：通过
 - 微信消息桥接闭环：通过
 - `npm pack`：通过
-- `npx --yes --package .\\codex-wechat-channel-0.1.0.tgz codex-wechat-channel help`：通过
+- `npx --yes --package .\\codex-wechat-channel-0.1.1.tgz codex-wechat-channel help`：通过
+- 远端 Ubuntu 部署：已完成 Node 22、Codex CLI、`codex-wechat-channel` 安装与后台 bridge 启动
 
 ## 后续可扩展项
 
