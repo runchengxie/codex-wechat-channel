@@ -19,7 +19,8 @@
   "scripts": {
     "start": "node cli.mjs start",
     "setup": "node cli.mjs setup",
-    "check": "node --check cli.mjs && node --check src/constants.mjs && node --check src/wechat-api.mjs && node --check src/codex-app-server.mjs && node --check src/setup.mjs && node --check src/start.mjs && node --check scripts/probe-app-server.mjs && node --check scripts/bridgectl.mjs && node --check scripts/servicectl.mjs",
+    "check": "node --check cli.mjs && node --check src/constants.mjs && node --check src/commands.mjs && node --check src/wechat-api.mjs && node --check src/codex-app-server.mjs && node --check src/setup.mjs && node --check src/start.mjs && node --check scripts/probe-app-server.mjs && node --check scripts/bridgectl.mjs && node --check scripts/servicectl.mjs",
+    "test": "node --test test/*.test.mjs",
     "probe": "node cli.mjs probe",
     "bridge:start": "node cli.mjs bridge start",
     "bridge:status": "node cli.mjs bridge status",

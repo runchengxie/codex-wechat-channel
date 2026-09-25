@@ -44,7 +44,7 @@ export function loadJson(filePath, fallback) {
 
 export function saveJson(filePath, value) {
   ensureDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
 }
 
 export function loadText(filePath, fallback = "") {
@@ -57,7 +57,7 @@ export function loadText(filePath, fallback = "") {
 
 export function saveText(filePath, value) {
   ensureDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, value, "utf8");
+  fs.writeFileSync(filePath, value, { encoding: "utf8", mode: 0o600 });
 }
 
 export function nowIso() {
