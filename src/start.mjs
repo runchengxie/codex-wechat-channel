@@ -14,6 +14,7 @@ import {
   shortId,
 } from "./constants.mjs";
 import { CodexAppServerClient } from "./codex-app-server.mjs";
+import { conversationSettings, parseWechatCommand, runWechatCommand } from "./commands.mjs";
 import { runSetup } from "./setup.mjs";
 import {
   downloadImageAttachment,
@@ -138,17 +139,19 @@ function buildUserInputs(meta, extracted, localImagePath) {
 
 async function ensureThread(client, threadStore, conversationKey, meta) {
   const existing = threadStore[conversationKey];
+  const settings = conversationSettings(client, existing);
   if (existing?.threadId) {
     if (!client.isThreadLoaded(existing.threadId)) {
       try {
         await client.resumeThread(existing.threadId, {
-          name: buildThreadName(meta),
+          name: existing.name || buildThreadName(meta),
+          settings,
         });
       } catch (error) {
         logError(
           `resume failed for ${conversationKey} (${existing.threadId}): ${error.message}; creating new thread`,
         );
-        delete threadStore[conversationKey];
+        threadStore[conversationKey] = { model: existing.model, effort: existing.effort, cwd: existing.cwd, history: existing.history };
       }
     }
 
@@ -161,9 +164,11 @@ async function ensureThread(client, threadStore, conversationKey, meta) {
   }
 
   const thread = await client.createThread({
-    name: buildThreadName(meta),
+    name: existing?.name || buildThreadName(meta),
+    settings,
   });
   const record = {
+    ...existing,
     threadId: thread.id,
     conversationKey,
     isGroup: meta.isGroup,
@@ -247,31 +252,48 @@ async function processMessage({
   );
 
   showTypingIndicator(account, replyTarget, contextToken).catch(() => undefined);
-  const localImagePath = await maybeDownloadImage(meta, extracted);
+  try {
+    const command = extracted.msgType === "text" ? parseWechatCommand(extracted.text) : null;
+    if (command) {
+      const record = threadStore[conversationKey];
+      if (record?.threadId && ["compact", "fork", "rename", "review"].includes(command.name) && !client.isThreadLoaded(record.threadId)) {
+        await client.resumeThread(record.threadId, {
+          name: record.name || buildThreadName(meta),
+          settings: conversationSettings(client, record),
+        });
+      }
+      const response = await runWechatCommand({ command, client, threadStore, conversationKey });
+      persistThreadStore(threadStore);
+      await sendTextMessage(account, replyTarget, response, contextToken);
+      return;
+    }
 
-  const threadRecord = await ensureThread(
-    client,
-    threadStore,
-    conversationKey,
-    meta,
-  );
-  persistThreadStore(threadStore);
+    if (extracted.msgType === "text" && extracted.text.startsWith("//")) {
+      extracted.text = extracted.text.slice(1);
+    }
+    const localImagePath = await maybeDownloadImage(meta, extracted);
+    const threadRecord = await ensureThread(client, threadStore, conversationKey, meta);
+    persistThreadStore(threadStore);
+    const reply = await client.sendTurn(
+      threadRecord.threadId,
+      buildUserInputs(meta, extracted, localImagePath),
+      conversationSettings(client, threadRecord),
+    );
+    const finalText = normalizeWechatText(reply.text);
 
-  const reply = await client.sendTurn(
-    threadRecord.threadId,
-    buildUserInputs(meta, extracted, localImagePath),
-  );
-  const finalText = normalizeWechatText(reply.text);
+    if (!finalText) {
+      logError(`Codex returned empty text for ${replyTarget}`);
+      return;
+    }
 
-  if (!finalText) {
-    logError(`Codex returned empty text for ${replyTarget}`);
-    return;
+    await sendTextMessage(account, replyTarget, finalText, contextToken);
+    threadRecord.updatedAt = nowIso();
+    persistThreadStore(threadStore);
+    log(`reply sent to ${shortId(replyTarget)}: "${finalText.slice(0, 80)}"`);
+  } catch (error) {
+    logError(`message pipeline failed for ${shortId(replyTarget)}: ${error.message}`);
+    await sendTextMessage(account, replyTarget, `Codex command failed: ${error.message}`.slice(0, 500), contextToken);
   }
-
-  await sendTextMessage(account, replyTarget, finalText, contextToken);
-  threadRecord.updatedAt = nowIso();
-  persistThreadStore(threadStore);
-  log(`reply sent to ${shortId(replyTarget)}: "${finalText.slice(0, 80)}"`);
 }
 
 export async function runStart(options = {}) {

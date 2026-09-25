@@ -133,6 +133,9 @@ export class CodexAppServerClient {
     };
     this.pending = new Map();
     this.turnWaiters = new Map();
+    this.turnEventBuffers = new Map();
+    this.completedTurns = new Map();
+    this.threadOperationWaiters = new Map();
     this.loadedThreads = new Set();
     this.nextId = 1;
     this.socket = null;
@@ -168,6 +171,7 @@ export class CodexAppServerClient {
         experimentalApi: true,
       },
     });
+    this.socket.send(JSON.stringify({ jsonrpc: "2.0", method: "initialized", params: {} }));
   }
 
   async startEmbeddedAppServer() {
@@ -271,6 +275,10 @@ export class CodexAppServerClient {
       waiter.reject(error);
     }
     this.turnWaiters.clear();
+    for (const waiter of this.threadOperationWaiters.values()) {
+      waiter.reject(error);
+    }
+    this.threadOperationWaiters.clear();
   }
 
   handleMessage(raw) {
@@ -283,11 +291,15 @@ export class CodexAppServerClient {
         pending.reject(new Error(message.error.message || JSON.stringify(message.error)));
       } else {
         if (
-          pending.method === "turn/start" &&
+          (pending.method === "turn/start" || pending.method === "review/start") &&
           message.result?.turn?.id &&
+          !this.completedTurns.has(message.result.turn.id) &&
           !this.turnWaiters.has(message.result.turn.id)
         ) {
-          this.turnWaiters.set(message.result.turn.id, createTurnWaiter());
+          const waiter = createTurnWaiter();
+          Object.assign(waiter, this.turnEventBuffers.get(message.result.turn.id) || {});
+          this.turnEventBuffers.delete(message.result.turn.id);
+          this.turnWaiters.set(message.result.turn.id, waiter);
         }
         pending.resolve(message.result);
       }
@@ -305,17 +317,19 @@ export class CodexAppServerClient {
         this.loadedThreads.add(params.thread.id);
         return;
       case "item/agentMessage/delta": {
-        const waiter = this.turnWaiters.get(params.turnId);
-        if (waiter) {
-          waiter.stream.push(params.delta);
+        const waiter = this.turnWaiters.get(params.turnId) || this.bufferTurnEvents(params.turnId);
+        waiter.stream.push(params.delta);
+        return;
+      }
+      case "item/started": {
+        const operation = this.threadOperationWaiters.get(params.threadId);
+        if (operation && params.item?.type === "contextCompaction") {
+          operation.turnId = params.turnId;
         }
         return;
       }
       case "item/completed": {
-        const waiter = this.turnWaiters.get(params.turnId);
-        if (!waiter) {
-          return;
-        }
+        const waiter = this.turnWaiters.get(params.turnId) || this.bufferTurnEvents(params.turnId);
 
         const item = params.item;
         if (item.type === "agentMessage") {
@@ -328,20 +342,25 @@ export class CodexAppServerClient {
         return;
       }
       case "turn/completed": {
-        const waiter = this.turnWaiters.get(params.turn.id);
-        if (!waiter) {
-          return;
+        const operation = this.threadOperationWaiters.get(params.threadId);
+        if (operation?.turnId === params.turn.id) {
+          this.threadOperationWaiters.delete(params.threadId);
+          if (params.turn.status === "completed") operation.resolve();
+          else operation.reject(new Error(params.turn.error?.message || `turn ended with status ${params.turn.status}`));
         }
-
+        const waiter = this.turnWaiters.get(params.turn.id);
+        const events = waiter || this.turnEventBuffers.get(params.turn.id);
         this.turnWaiters.delete(params.turn.id);
+        this.turnEventBuffers.delete(params.turn.id);
+        const result = {
+          text: events?.finalText || events?.stream.join("").trim() || events?.commentary.join("\n").trim() || "",
+          commentary: events?.commentary.join("\n").trim() || "",
+        };
+        this.completedTurns.set(params.turn.id, { status: params.turn.status, result, error: params.turn.error?.message });
+        if (this.completedTurns.size > 50) this.completedTurns.delete(this.completedTurns.keys().next().value);
+        if (!waiter) return;
         if (params.turn.status === "completed") {
-          waiter.resolve({
-            text:
-              waiter.finalText ||
-              waiter.stream.join("").trim() ||
-              waiter.commentary.join("\n").trim(),
-            commentary: waiter.commentary.join("\n").trim(),
-          });
+          waiter.resolve(result);
         } else {
           const reason = params.turn.error?.message || `turn ended with status ${params.turn.status}`;
           waiter.reject(new Error(reason));
@@ -354,6 +373,14 @@ export class CodexAppServerClient {
       default:
         return;
     }
+  }
+
+  bufferTurnEvents(turnId) {
+    if (!this.turnEventBuffers.has(turnId)) {
+      this.turnEventBuffers.set(turnId, { finalText: "", commentary: [], stream: [] });
+      if (this.turnEventBuffers.size > 50) this.turnEventBuffers.delete(this.turnEventBuffers.keys().next().value);
+    }
+    return this.turnEventBuffers.get(turnId);
   }
 
   request(method, params) {
@@ -375,17 +402,22 @@ export class CodexAppServerClient {
         params,
       }),
     );
-    return pending.promise;
+    const timeout = setTimeout(() => {
+      if (!this.pending.has(id)) return;
+      this.pending.delete(id);
+      pending.reject(new Error(`${method} timed out after 30000ms`));
+    }, 30_000);
+    return pending.promise.finally(() => clearTimeout(timeout));
   }
 
   isThreadLoaded(threadId) {
     return this.loadedThreads.has(threadId);
   }
 
-  buildThreadParams() {
+  buildThreadParams(settings = {}) {
     return {
-      cwd: this.options.cwd,
-      model: this.options.model ?? null,
+      cwd: settings.cwd || this.options.cwd,
+      model: settings.model ?? this.options.model ?? null,
       approvalPolicy: this.options.approvalPolicy,
       sandbox: this.options.sandbox,
       serviceName: this.options.serviceName,
@@ -395,8 +427,8 @@ export class CodexAppServerClient {
     };
   }
 
-  async createThread({ name } = {}) {
-    const result = await this.request("thread/start", this.buildThreadParams());
+  async createThread({ name, settings } = {}) {
+    const result = await this.request("thread/start", this.buildThreadParams(settings));
     this.loadedThreads.add(result.thread.id);
     if (name) {
       await this.setThreadName(result.thread.id, name);
@@ -404,11 +436,11 @@ export class CodexAppServerClient {
     return result.thread;
   }
 
-  async resumeThread(threadId, { name } = {}) {
+  async resumeThread(threadId, { name, settings = {} } = {}) {
     const result = await this.request("thread/resume", {
       threadId,
-      cwd: this.options.cwd,
-      model: this.options.model ?? null,
+      cwd: settings.cwd || this.options.cwd,
+      model: settings.model ?? this.options.model ?? null,
       approvalPolicy: this.options.approvalPolicy,
       sandbox: this.options.sandbox,
       developerInstructions: this.options.developerInstructions,
@@ -428,18 +460,78 @@ export class CodexAppServerClient {
     });
   }
 
-  async sendTurn(threadId, input) {
+  async sendTurn(threadId, input, settings = {}) {
     const result = await this.request("turn/start", {
       threadId,
       input,
-      model: this.options.model ?? null,
+      model: settings.model ?? this.options.model ?? null,
+      ...(settings.cwd ? { cwd: settings.cwd } : {}),
+      ...(settings.effort ? { effort: settings.effort } : {}),
     });
     const turnId = result.turn.id;
+    const completed = this.completedTurns.get(turnId);
+    if (completed) {
+      this.completedTurns.delete(turnId);
+      if (completed.status !== "completed") throw new Error(completed.error || `turn ended with status ${completed.status}`);
+      return completed.result;
+    }
     const waiter = this.turnWaiters.get(turnId) || createTurnWaiter();
     if (!this.turnWaiters.has(turnId)) {
       this.turnWaiters.set(turnId, waiter);
     }
     return waiter.promise;
+  }
+
+  async listModels() {
+    const models = [];
+    let cursor = null;
+    do {
+      const page = await this.request("model/list", { limit: 100, includeHidden: false, ...(cursor ? { cursor } : {}) });
+      models.push(...(page.data || []));
+      cursor = page.nextCursor;
+    } while (cursor);
+    return models;
+  }
+
+  async compactThread(threadId) {
+    const waiter = deferred();
+    this.threadOperationWaiters.set(threadId, waiter);
+    const timeout = setTimeout(() => waiter.reject(new Error("compaction timed out")), 180_000);
+    try {
+      await this.request("thread/compact/start", { threadId });
+      await waiter.promise;
+    } finally {
+      clearTimeout(timeout);
+      if (this.threadOperationWaiters.get(threadId) === waiter) this.threadOperationWaiters.delete(threadId);
+    }
+  }
+
+  async forkThread(threadId, settings = {}) {
+    const result = await this.request("thread/fork", {
+      threadId,
+      model: settings.model ?? this.options.model ?? null,
+      cwd: settings.cwd || this.options.cwd,
+      sandbox: this.options.sandbox,
+      approvalPolicy: this.options.approvalPolicy,
+    });
+    this.loadedThreads.add(result.thread.id);
+    return result.thread;
+  }
+
+  async reviewThread(threadId) {
+    const result = await this.request("review/start", { threadId, target: { type: "uncommittedChanges" } });
+    const turnId = result.turn.id;
+    const completed = this.completedTurns.get(turnId);
+    if (completed) {
+      this.completedTurns.delete(turnId);
+      if (completed.status !== "completed") throw new Error(completed.error || `turn ended with status ${completed.status}`);
+      return completed.result;
+    }
+    const waiter = this.turnWaiters.get(turnId) || createTurnWaiter();
+    this.turnWaiters.set(turnId, waiter);
+    const timeout = setTimeout(() => waiter.reject(new Error("review timed out")), 180_000);
+    try { return await waiter.promise; }
+    finally { clearTimeout(timeout); this.turnWaiters.delete(turnId); }
   }
 
   async close() {
