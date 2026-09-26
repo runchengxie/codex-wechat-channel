@@ -16,10 +16,12 @@ const message: WechatMessage = {
   item_list: [{ type: 1, text_item: { text: "hello" } }],
 };
 
-await test("permission command persists the choice and resumes existing context before the next turn", async (t) => {
+for (const nextInput of ["hello", "/review"]) {
+await test(`permission changes apply to restored historical threads before ${nextInput}`, async (t) => {
   temporaryData(t);
   const client = new CodexAppServerClient({ sandbox: "danger-full-access" });
   client.loadedThreads.add("existing");
+  client.loadedThreads.add("current");
   t.mock.method(client, "connect", async () => {});
   const requests: string[] = [];
   t.mock.method(client, "request", async (method: string, params: unknown) => {
@@ -31,16 +33,24 @@ await test("permission command persists the choice and resumes existing context 
     assert.match(requests[0], /thread\/resume.*"sandbox":"read-only"/);
     return { text: "answer", commentary: "" };
   });
+  t.mock.method(client, "reviewThread", async (threadId: string) => {
+    assert.equal(threadId, "existing");
+    assert.match(requests[0], /thread\/resume.*"sandbox":"read-only"/);
+    return { text: "review", commentary: "" };
+  });
   t.mock.method(globalThis, "fetch", async () => Response.json({ ret: 0 }));
-  const threadStore: ThreadStore = { sender: { threadId: "existing" } };
+  const threadStore: ThreadStore = { sender: { threadId: "current", history: [{ threadId: "existing", name: null, cwd: process.cwd() }] } };
   const context = { account, client, threadStore, contextTokens: new Map([["sender", "context"]]), allowedUsers: new Set<string>() };
   await processMessage({ ...context, message: { ...message, item_list: [{ type: 1, text_item: { text: "/permissions read-only" } }] } });
-  assert.equal(client.isThreadLoaded("existing"), false);
+  assert.equal(client.isThreadLoaded("current"), false);
   assert.match(fs.readFileSync(PATHS.threads, "utf8"), /"sandbox": "read-only"/);
-  await processMessage({ ...context, message });
+  await processMessage({ ...context, message: { ...message, item_list: [{ type: 1, text_item: { text: "/resume existing" } }] } });
+  assert.equal(client.isThreadLoaded("existing"), false);
+  await processMessage({ ...context, message: { ...message, item_list: [{ type: 1, text_item: { text: nextInput } }] } });
   assert.equal(threadStore.sender.threadId, "existing");
   assert.equal(client.isThreadLoaded("existing"), true);
 });
+}
 
 await test("the message pipeline rejects unlisted senders before connecting or sending", async (t) => {
   const client = new CodexAppServerClient();

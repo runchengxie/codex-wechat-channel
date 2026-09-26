@@ -162,10 +162,11 @@ function handleThreads({ record }: CommandContext): string {
   return `Current thread: ${record.threadId || "none"}\nSaved threads:\n${savedThreads(record).map((item) => `${item.threadId}${item.name ? ` (${item.name})` : ""}`).join("\n") || "none"}`;
 }
 
-function handleResume({ threadStore, conversationKey, record, argument }: CommandContext): string {
+function handleResume({ client, threadStore, conversationKey, record, argument }: CommandContext): string {
   if (!argument) return "Usage: /resume <thread-id>. Send /threads to see saved threads.";
   const target = savedThreads(record).find((item) => item.threadId === argument);
   if (!target) return "Thread not found in this WeChat conversation. Send /threads to see saved threads.";
+  client.invalidateLoadedThread(target.threadId);
   threadStore[conversationKey] = {
     ...record,
     threadId: target.threadId,
