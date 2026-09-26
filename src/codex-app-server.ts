@@ -60,7 +60,7 @@ function buildMissingAuthError(authPath: string) {
   return new Error(
     [
       "Codex authentication missing for embedded app-server.",
-      "Set OPENAI_API_KEY in the environment or run `codex login` so the key is stored at",
+      "Set OPENAI_API_KEY in the environment or as a top-level string in",
       authPath,
     ].join(" "),
   );

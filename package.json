@@ -12,6 +12,9 @@
     "dist/src/",
     "dist/scripts/",
     "docs/plan-and-progress.md",
+    "docs/usage.md",
+    "docs/configuration.md",
+    "docs/development.md",
     "docs/releases/",
     "README.md",
     "docs/maintenance-audit.md"
