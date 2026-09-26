@@ -4,6 +4,11 @@ import { ChildProcess } from "node:child_process";
 
 import { CodexAppServerClient } from "../src/codex-app-server.js";
 
+await test("unknown app-server notifications can omit params", () => {
+  const client = new CodexAppServerClient();
+  assert.doesNotThrow(() => client.handleNotification("future/notification", undefined));
+});
+
 await test("compaction waits for completion notification", async () => {
   const client = new CodexAppServerClient();
   client.request = async (method) => {

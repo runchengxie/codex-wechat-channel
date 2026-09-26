@@ -8,6 +8,7 @@
   },
   "files": [
     "dist/cli.js",
+    "dist/cli.js.map",
     "dist/src/",
     "dist/scripts/",
     "docs/plan-and-progress.md",
@@ -32,7 +33,8 @@
     "service:uninstall": "npm run build && node dist/cli.js service uninstall",
     "audit:code": "npm run build && node dist/tools/maintenance-report.js",
     "lint": "eslint cli.ts src scripts test tools",
-    "test:coverage": "npm run build && c8 --all --include=\"dist/cli.js\" --include=\"dist/src/**/*.js\" --include=\"dist/scripts/**/*.js\" --exclude=\"dist/test/**\" --exclude=\"dist/tools/**\" --check-coverage --lines=70 --branches=60 --functions=60 --reporter=text --reporter=json-summary node --test dist/test/*.test.js && node dist/tools/check-coverage.js"
+    "test:coverage": "npm run build && c8 --all --include=\"dist/cli.js\" --include=\"dist/src/**/*.js\" --include=\"dist/scripts/**/*.js\" --exclude=\"dist/test/**\" --exclude=\"dist/tools/**\" --check-coverage --lines=70 --branches=60 --functions=60 --reporter=text --reporter=json-summary node --test dist/test/*.test.js && node dist/tools/check-coverage.js",
+    "check:package": "npm run build && node dist/tools/check-package.js"
   },
   "engines": {
     "node": ">=22"
@@ -49,12 +51,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/renqingfei/codex-wechat-channel.git"
+    "url": "git+https://github.com/runchengxie/codex-wechat-channel.git"
   },
   "bugs": {
-    "url": "https://github.com/renqingfei/codex-wechat-channel/issues"
+    "url": "https://github.com/runchengxie/codex-wechat-channel/issues"
   },
-  "homepage": "https://github.com/renqingfei/codex-wechat-channel#readme",
+  "homepage": "https://github.com/runchengxie/codex-wechat-channel#readme",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.20.4",

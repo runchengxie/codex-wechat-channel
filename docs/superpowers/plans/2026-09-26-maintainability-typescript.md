@@ -1,149 +1,96 @@
-# Maintenance and TypeScript Migration Plan
+# 维护改进与 TypeScript 迁移计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+按 `superpowers:executing-plans` 逐项执行。设计依据为 `docs/superpowers/specs/2026-09-26-maintainability-typescript-design.md`。
 
-**Goal:** Migrate the bridge to compiled TypeScript and add measured, repeatable quality checks without changing runtime behavior.
+目标是将桥接程序迁移到编译后的 TypeScript，并建立可重复的类型、代码规范、测试、覆盖率、依赖和发布检查。
 
-**Architecture:** TypeScript is the source of truth and `tsc` emits ESM JavaScript into `dist/`. Tests run against that build. ESLint, strict type checking, targeted local-boundary tests, coverage, audit output, and npm package inspection form the maintenance gates.
+## 全局约束
 
-**Tech Stack:** Node.js 22+, TypeScript, ESLint with typescript-eslint, Node `node:test`, TypeScript Compiler API, GitHub Actions.
+- 保持 Node.js 22 及以上的运行要求，不新增运行时 npm 依赖。
+- `tsc` 输出 ESM JavaScript 到 `dist/`，使用者无需安装 TypeScript。
+- 保留 Bash 配置监视脚本，并执行 `bash -n`。
+- 测试针对编译输出，使用本地替身，不访问真实微信、账号凭证或系统服务。
+- 不提交 `dist/`、覆盖率输出或本地审计临时文件。
 
-**Spec:** `docs/superpowers/specs/2026-09-26-maintainability-typescript-design.md`
+## 审查重点
 
-## Global Constraints
+- NodeNext 下的 `.js` 相对导入同时适用于源码编译和发布包。
+- npm `bin` 指向 `dist/cli.js` 后仍可作为命令执行。
+- tarball 包含所有运行时文件和预期的源映射，不包含测试或内部计划。
+- 微信 JSON、WebSocket 消息、进程数据和本地文件经过字段校验后再使用。
+- 覆盖率包含未加载的生产模块，统计范围或阈值不满足时检查必须失败。
 
-- Keep `engines.node` at `>=22`.
-- Publish ESM JavaScript in `dist/`; consumers do not need TypeScript.
-- Add no runtime npm dependencies.
-- Keep the Bash watcher as Bash and test it with `bash -n`.
-- Run tests against compiled output and never use real WeChat credentials, network services, or systemd mutations in CI.
-- Do not commit generated `dist/`, coverage output, or local audit scratch files.
+## 任务 1：构建和发布目录
 
-## Review Focus
+涉及 `tsconfig.json`、`package-lock.json`、`tools/clean-build.mjs`、`package.json`、`.gitignore`、CI 及包入口测试。
 
-- Import path rewrites must resolve from source and compiled package on NodeNext.
-- The global CLI executable must retain executable behavior after `bin` points into `dist/`.
-- Production npm tarball must contain every runtime file but omit tests, source maps if not intended, and development-only internal notes.
-- Type declarations must not trust WeChat JSON, WebSocket frames, child-process data, or file contents before validation.
-- CI coverage and audit commands must fail for their intended thresholds without silently excluding untested production modules.
+- [x] 添加编译后 CLI 的帮助命令测试，确认未构建时失败。
+- [x] 安装 TypeScript 开发工具，以 `allowJs` 支持迁移过渡。
+- [x] 添加 clean、build、check、test、prepack 命令，忽略生成目录。
+- [x] 验证构建、类型检查和入口测试，确认重新构建会删除旧输出。
+- [x] 检查 npm 文件列表，确认包含入口和运行时文件、排除测试。
+- [x] 提交构建基础。过渡入口为 `dist/cli.mjs`，任务 2 完成后改为 `dist/cli.js`。
 
----
+## 任务 2：运行时代码迁移
 
-### Task 1: Reproducible TypeScript build and package layout
+将 `cli.mjs`、`src/*.mjs` 和 `scripts/*.mjs` 改为 `.ts`。为微信消息、桥接配置、Codex 请求与通知、用户输入和持久化记录建立类型。
 
-**Files:**
-- Create: `tsconfig.json`
-- Create: `package-lock.json`
-- Create: `tools/clean-build.mjs`
-- Modify: `package.json`, `.gitignore`, `.github/workflows/ci.yml`
-- Test: add a package smoke test for the built CLI.
+- [x] 先转换一个纯函数模块，验证类型检查和编译后测试。
+- [x] 按职责转换剩余模块，启用 strict，在外部边界解析 `unknown`。
+- [x] 相对导入使用 `.js`，更新 npm 入口和发布文件范围。
+- [x] 运行相关测试和完整测试，检查命令参数及原有行为。
+- [x] 确认 CLI、运行时模块和 Node 服务脚本已无 `.mjs` 源码。
+- [x] 提交运行时 TypeScript 迁移。
 
-**Interfaces:**
-- `npm run check` runs the TypeScript compiler in no-emit mode. Strict checking is enabled when Task 2 finishes the source migration.
-- `npm run build` writes ESM output under `dist/`.
-- `npm test` cleans, builds and runs tests from compiled output.
-- The published binary is `dist/cli.mjs` during the JavaScript build step, then `dist/cli.js` after Task 2 migrates the CLI.
+## 任务 3：测试迁移与边界行为
 
-- [x] Add a smoke test that runs the package entry with `help` and checks expected output.
-- [x] Run the test and confirm it fails because the compiled entry does not exist yet.
-- [x] Add the TypeScript toolchain as development dependencies and create a NodeNext config with `allowJs` for the migration period.
-- [x] Add clean, build, check, test, and prepack scripts. Ignore generated output.
-- [x] Verify `npm run check`, `npm run build`, and the smoke test. Re-run build after deleting `dist/` and confirm stale files cannot survive.
-- [x] Run `npm pack --dry-run --json`; assert the bin target and runtime files are present and tests are absent.
-- [x] Commit as `build: add compiled TypeScript package pipeline`.
+将 `test/*.test.mjs` 改为 `.test.ts`，测试从 `dist/test/` 运行。网络和系统操作使用本地替身，保留生产接口。
 
-### Task 2: Migrate CLI and runtime modules
+- [x] 迁移原有测试，保留基线的 19 项行为检查。
+- [x] 检查微信请求格式、消息提取、错误响应和字段校验。
+- [x] 直接测试消息入口，证明未允许的发送者不会启动 Codex 或收到回复。
+- [x] 证明失败提示发送成功后可以保存游标，发送失败时保持旧游标。
+- [x] 检查服务文本生成，避免执行真实 `systemctl`、`apt-get`、`sudo` 或写入系统目录。
+- [x] 运行相关测试和完整测试，提交边界测试。
 
-**Files:**
-- Rename: `cli.mjs`, `src/*.mjs`, `scripts/*.mjs` to `.ts`.
-- Modify: imports in all runtime modules.
-- Add types: WeChat payloads, bridge options, message inputs, stored records, Codex app-server requests and notifications.
+## 任务 4：可复现的结构和依赖报告
 
-**Interfaces:**
-- Keep exported behavior and command arguments unchanged.
-- Import local modules with `.js` suffixes under NodeNext.
-- Parse untrusted boundary values from `unknown` before using them.
+新增 `tools/maintenance-report.ts`、`docs/maintenance-audit.md` 和 `npm run audit:code`。
 
-- [x] Convert one pure module and update its test to import the built `.js` module.
-- [x] Run type checking and its targeted test to verify the converted module compiles and behaves the same.
-- [x] Convert remaining runtime modules in groups by responsibility, enable strict checking, and resolve types at API and process boundaries.
-- [x] Update the npm binary and package allowlist to the `.js` CLI and selected `dist/` runtime directories.
-- [x] Run targeted tests after each group and the complete test suite after the conversion.
-- [x] Verify all app files in `cli.ts`, `src/`, and Node scripts have no `.mjs` source remaining.
-- [x] Commit as `refactor: migrate bridge runtime to TypeScript`.
+报告使用 TypeScript Compiler API，输出物理行数、决策式圈复杂度、认知复杂度近似值、导入关系、循环、入度、出度和静态可解析调用。动态调用及数据流的限制必须说明，不能把近似关系当作运行时事实。
 
-### Task 3: Migrate tests and cover critical external boundaries
+- [x] 使用小型源码样例验证行数、分支、导入、调用和循环。
+- [x] 实现 AST 报告并生成基线，记录复杂函数和较大模块。
+- [x] 人工说明消息、持久化文件和 npm 构建产物的流向。
+- [x] 记录复现命令、环境、指标定义和局限。依赖版本以锁文件为准，漏洞用在线 `npm audit` 核对。
+- [x] 提交报告与说明文档。
 
-**Files:**
-- Rename: `test/*.test.mjs` to `.test.ts`.
-- Create: focused tests for WeChat API request/payload handling, startup sender filtering and failure behavior, service unit rendering, and CLI/package execution.
-- Modify: test scripts and injectable boundaries where needed.
+## 任务 5：lint 与代码异味处理
 
-**Interfaces:**
-- Tests execute compiled modules from `dist/`.
-- Network and system operations use injected local fakes; production APIs remain unchanged.
+新增 `eslint.config.mjs`，扫描应用代码、测试和开发工具。禁止未使用代码、显式 `any` 和绕过类型检查的注释，限制复杂度与嵌套深度。
 
-- [x] Move existing tests to TypeScript and verify the baseline 19 behaviors remain covered.
-- [x] Add failing tests for WeChat message normalization and API error responses using a local fetch fake.
-- [x] Add startup-level tests proving an unlisted sender does not start Codex or send a reply, and failures only advance the cursor after a delivered failure notice.
-- [x] Add service rendering tests without invoking `systemctl`, `apt-get`, `sudo`, or file writes outside the test temp directory.
-- [x] Run targeted and full tests from `dist/test/`.
-- [x] Commit as `test: cover bridge integration boundaries`.
+- [x] 配置 ESLint、TypeScript ESLint 和 SonarJS，记录首次违规类型。
+- [x] 根据任务 4 的测量确定门槛，拆分高复杂度职责，保留回归测试。
+- [x] 验证 lint 和完整测试，不添加整文件或规则豁免。
+- [x] 提交质量门禁。圈复杂度和 SonarJS 认知复杂度上限为 20，嵌套深度上限为 4。
 
-### Task 4: Reproducible architecture and dependency audit
+补测发现 `probe` 成功后仍保留超时计时器，现已增加失败回归测试并修复清理行为。
 
-**Files:**
-- Create: `tools/maintenance-report.ts` and `docs/maintenance-audit.md`.
-- Modify: `package.json`.
+## 任务 6：CI、覆盖率与开发说明
 
-**Interfaces:**
-- `npm run audit:code` reports physical LOC, decision-based cyclomatic complexity, a documented cognitive-complexity approximation, import graph cycles/fan-in/fan-out, and direct statically resolvable call edges.
-- `npm audit` checks the locked dependency tree.
-- The report explicitly labels dynamic calls and data lineage that static syntax analysis cannot prove.
+更新 `.github/workflows/ci.yml`、README、功能现状和发布文件范围，新增仓库 `AGENTS.md`。
 
-- [x] Test the report against small source fixtures with known LOC, decisions, imports, call edges, and cycles.
-- [x] Implement the AST-based report using the TypeScript Compiler API.
-- [x] Generate and review the current report. Keep data lineage and npm artifact lineage as documented flows, not guessed call-graph edges.
-- [x] Record the exact commands, environment, metric definitions, and known limitations in `docs/maintenance-audit.md`.
-- [x] Commit as `docs: add reproducible codebase audit`.
+- [x] 加入全部生产文件的覆盖率统计，下限为行 70%、分支 60%、函数 60%。未加载模块计为零覆盖，空报告或漏文件也必须失败。
+- [x] CI 配置 Node.js 22、24 矩阵，执行 `npm ci`、类型检查、lint、构建、测试覆盖率、代码报告、`npm audit --audit-level=high`、Bash 语法和 npm 包检查。
+- [x] 验证实际 tarball 可离线安装并执行已安装的 CLI，确认文件范围和源映射。
+- [x] 从干净安装执行所有本地 CI 命令。远端矩阵结果在最终交付时核对。
+- [x] 更新并复核全部说明文档，说明 TypeScript 源码、构建目录、权限和开发流程。文档不得将本地替身测试描述成真实部署验收。
+- [x] 提交 CI 和文档改进。
 
-### Task 5: Lint rules and code-smell cleanup
+## 最终交付
 
-**Files:**
-- Create: `eslint.config.mjs`.
-- Modify: TypeScript modules found to exceed measured complexity or responsibility limits.
-- Modify: `package.json`.
-
-**Interfaces:**
-- `npm run lint` checks all application TypeScript and tests.
-- Rules reject unused code, explicit `any`, unsafe suppressions, and complexity/depth beyond thresholds recorded by Task 4.
-
-- [x] Add lint configuration and verify the command parses all intended source and test files.
-- [x] Run lint and record existing violations by category against the Task 4 report.
-- [x] Add tests before each behavior-preserving extraction from a high-complexity hotspot.
-- [x] Refactor only findings that exceed recorded thresholds, with no broad formatting-only rewrite.
-- [x] Run lint and all tests; ensure no blanket file or rule disables were added.
-- [x] Commit as `chore: enforce TypeScript quality rules`.
-
-### Task 6: CI, coverage, and contributor documentation
-
-**Files:**
-- Modify: `.github/workflows/ci.yml`, `README.md`, `docs/plan-and-progress.md`, `.npmignore` or package `files`.
-- Create: repository `AGENTS.md`.
-
-**Interfaces:**
-- CI runs `npm ci`, type check, lint, build, tests with coverage, `npm audit --audit-level=high`, Bash syntax check, and npm package inspection on Node.js 22 and 24.
-- Docs describe the source/build split, checks, coverage scope, architecture and development boundaries accurately.
-
-- [ ] Add the CI matrix and coverage gate for all compiled production files, including untested files at zero: at least 70% lines, 60% branches, and 60% functions.
-- [ ] Run all CI commands locally and inspect package contents.
-- [ ] Update README, plan-and-progress and repository `AGENTS.md` in clear Chinese.
-- [ ] Confirm the documentation does not describe untested deployment behavior as covered.
-- [ ] Commit as `ci: enforce typed build and maintenance checks`.
-
-## Completion
-
-- [ ] Run clean install, type check, lint, build, tests with coverage, npm audit, Bash syntax check, and package inspection.
-- [ ] Review the full branch against `fork/main`, resolve Important findings, and verify the task worktree is clean.
-- [ ] Push the branch and create a PR targeting the user's fork `main`.
-- [ ] Merge only after required checks pass, then remove this branch and worktree.
+- [x] 完成干净安装、类型检查、lint、构建、全部测试及覆盖率、代码报告、依赖审计、Bash 语法和发布包验证。
+- [ ] 对照 `fork/main` 审查整个分支，处理重要问题并确认工作树干净。
+- [ ] 推送到用户 fork，创建目标为 `main` 的 PR。
+- [ ] 必需检查和审查通过后合并，记录 PR 与合并 SHA。
+- [ ] 确认没有唯一未保存内容，再删除本任务的分支和 worktree。共享主检出干净时以 fast-forward 同步。
