@@ -129,6 +129,7 @@ export class CodexAppServerClient {
       codexBin: DEFAULT_CODEX_BIN,
       codexAuthPath: resolveCodexAuthPath(),
       serviceName: "codex-wechat-channel",
+      turnTimeoutMs: 180_000,
       ...options,
     };
     this.pending = new Map();
@@ -142,6 +143,7 @@ export class CodexAppServerClient {
     this.child = null;
     this.closeReason = null;
     this.launchEnv = null;
+    this.connectPromise = null;
   }
 
   log(message) {
@@ -153,10 +155,25 @@ export class CodexAppServerClient {
   }
 
   async connect() {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+    if (this.isConnected()) {
       return;
     }
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
 
+    const connecting = this.connectInternal();
+    this.connectPromise = connecting;
+    try {
+      await connecting;
+    } finally {
+      if (this.connectPromise === connecting) {
+        this.connectPromise = null;
+      }
+    }
+  }
+
+  async connectInternal() {
     this.launchEnv = this.prepareLaunchEnv();
     const appServerUrl =
       this.options.appServerUrl || (await this.startEmbeddedAppServer());
@@ -207,8 +224,9 @@ export class CodexAppServerClient {
     });
 
     this.child.once("exit", (code, signal) => {
-      this.closeReason = `embedded app-server exited (code=${code}, signal=${signal})`;
-      this.rejectAllPending(new Error(this.closeReason));
+      this.invalidateConnection(
+        `embedded app-server exited (code=${code}, signal=${signal})`,
+      );
     });
 
     await waitForReady(readyUrl, 15_000);
@@ -254,8 +272,13 @@ export class CodexAppServerClient {
     });
 
     socket.addEventListener("close", (event) => {
-      this.closeReason = `websocket closed (${event.code}) ${event.reason}`.trim();
-      this.rejectAllPending(new Error(this.closeReason));
+      if (this.socket === socket) {
+        this.invalidateConnection(
+          `websocket closed (${event.code}) ${event.reason}`.trim(),
+        );
+      } else {
+        opened.reject(new Error(`Codex app-server closed before connecting to ${wsUrl}`));
+      }
     });
 
     socket.addEventListener("message", (event) => {
@@ -279,6 +302,21 @@ export class CodexAppServerClient {
       waiter.reject(error);
     }
     this.threadOperationWaiters.clear();
+  }
+
+  invalidateConnection(reason) {
+    const socket = this.socket;
+    this.socket = null;
+    this.loadedThreads.clear();
+    this.closeReason = reason;
+    this.rejectAllPending(new Error(reason));
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.close();
+    }
+  }
+
+  isConnected() {
+    return Boolean(this.socket && this.socket.readyState === WebSocket.OPEN);
   }
 
   handleMessage(raw) {
@@ -479,7 +517,21 @@ export class CodexAppServerClient {
     if (!this.turnWaiters.has(turnId)) {
       this.turnWaiters.set(turnId, waiter);
     }
-    return waiter.promise;
+    const timeout = setTimeout(() => {
+      if (this.turnWaiters.get(turnId) !== waiter) return;
+      this.turnWaiters.delete(turnId);
+      waiter.reject(
+        new Error(`Codex turn timed out after ${this.options.turnTimeoutMs}ms`),
+      );
+    }, this.options.turnTimeoutMs);
+    try {
+      return await waiter.promise;
+    } finally {
+      clearTimeout(timeout);
+      if (this.turnWaiters.get(turnId) === waiter) {
+        this.turnWaiters.delete(turnId);
+      }
+    }
   }
 
   async listModels() {

@@ -261,6 +261,10 @@ async function processMessage({
 
   showTypingIndicator(account, replyTarget, contextToken).catch(() => undefined);
   try {
+    if (!client.isConnected()) {
+      await client.connect();
+    }
+
     const command = extracted.msgType === "text" ? parseWechatCommand(extracted.text) : null;
     if (command) {
       const record = threadStore[conversationKey];
