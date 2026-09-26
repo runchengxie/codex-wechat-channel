@@ -1,5 +1,7 @@
 # 维护改进与 TypeScript 迁移计划
 
+白名单相关的历史验收项已随当前 ClawBot 仅支持私聊的结论废弃。现行行为见 `docs/plan-and-progress.md`。
+
 按 `superpowers:executing-plans` 逐项执行。设计依据为 `docs/superpowers/specs/2026-09-26-maintainability-typescript-design.md`。
 
 目标是将桥接程序迁移到编译后的 TypeScript，并建立可重复的类型、代码规范、测试、覆盖率、依赖和发布检查。

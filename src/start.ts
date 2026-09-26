@@ -14,7 +14,6 @@ import {
   shortId,
 } from "./constants.js";
 import { CodexAppServerClient } from "./codex-app-server.js";
-import { isSenderAllowed, parseAllowedUsers } from "./access-control.js";
 import { conversationSettings, parseWechatCommand, runWechatCommand } from "./commands.js";
 import { runSetup } from "./setup.js";
 import { processUpdateBatch } from "./update-batch.js";
@@ -238,14 +237,8 @@ export async function processMessage({
   contextTokens,
   threadStore,
   message,
-  allowedUsers,
-}: { account: Account; client: CodexAppServerClient; contextTokens: Map<string, string>; threadStore: ThreadStore; message: WechatMessage; allowedUsers: ReadonlySet<string> }) {
+}: { account: Account; client: CodexAppServerClient; contextTokens: Map<string, string>; threadStore: ThreadStore; message: WechatMessage }) {
   if (!isInboundUserMessage(message)) {
-    return;
-  }
-
-  if (!isSenderAllowed(message.from_user_id, allowedUsers)) {
-    log(`ignored message from unlisted sender ${message.from_user_id || "unknown"}`);
     return;
   }
 
@@ -350,11 +343,6 @@ export async function runStart(options: StartOptions = {}) {
   ensureDir(PATHS.dataDir);
   ensureDir(PATHS.mediaDir);
 
-  const allowedUsers = parseAllowedUsers(process.env.CODEX_WECHAT_ALLOWED_USERS);
-  if (allowedUsers.size === 0) {
-    log("WARNING: CODEX_WECHAT_ALLOWED_USERS is empty; messages from all users are allowed.");
-  }
-
   const savedAccount = loadJson(PATHS.account, null);
   let account = savedAccount === null ? null : accountFromJson(savedAccount);
   if (!account) {
@@ -428,7 +416,6 @@ export async function runStart(options: StartOptions = {}) {
               contextTokens,
               threadStore,
               message,
-              allowedUsers,
             }),
           );
         },

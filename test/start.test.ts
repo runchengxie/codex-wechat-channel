@@ -40,7 +40,7 @@ await test(`permission changes apply to restored historical threads before ${nex
   });
   t.mock.method(globalThis, "fetch", async () => Response.json({ ret: 0 }));
   const threadStore: ThreadStore = { sender: { threadId: "current", history: [{ threadId: "existing", name: null, cwd: process.cwd() }] } };
-  const context = { account, client, threadStore, contextTokens: new Map([["sender", "context"]]), allowedUsers: new Set<string>() };
+  const context = { account, client, threadStore, contextTokens: new Map([["sender", "context"]]) };
   await processMessage({ ...context, message: { ...message, item_list: [{ type: 1, text_item: { text: "/permissions read-only" } }] } });
   assert.equal(client.isThreadLoaded("current"), false);
   assert.match(fs.readFileSync(PATHS.threads, "utf8"), /"sandbox": "read-only"/);
@@ -51,15 +51,6 @@ await test(`permission changes apply to restored historical threads before ${nex
   assert.equal(client.isThreadLoaded("existing"), true);
 });
 }
-
-await test("the message pipeline rejects unlisted senders before connecting or sending", async (t) => {
-  const client = new CodexAppServerClient();
-  const connect = t.mock.method(client, "connect", async () => assert.fail("must not connect"));
-  const fetch = t.mock.method(globalThis, "fetch", async () => assert.fail("must not send"));
-  await processMessage({ account, client, message, contextTokens: new Map(), threadStore: {}, allowedUsers: new Set(["allowed"]) });
-  assert.equal(connect.mock.callCount(), 0);
-  assert.equal(fetch.mock.callCount(), 0);
-});
 
 for (const delivered of [true, false]) {
   await test(`the real failure-notice pipeline ${delivered ? "advances" : "holds"} the cursor`, async (t) => {
@@ -78,7 +69,7 @@ for (const delivered of [true, false]) {
       response: { msgs: [message], get_updates_buf: "next" },
       dispatch: (incoming) => processMessage({
         account, client, message: incoming,
-        contextTokens: new Map([["sender", "context"]]), threadStore: {}, allowedUsers: new Set(),
+        contextTokens: new Map([["sender", "context"]]), threadStore: {},
       }),
       saveCursor: (cursor) => { saved.push(cursor); },
     });
@@ -107,7 +98,7 @@ await test("normal messages create and persist threads, reuse context, and send 
   });
   const contextTokens = new Map<string, string>();
   const threadStore = {};
-  await processMessage({ account, client, contextTokens, threadStore, allowedUsers: new Set(),
+  await processMessage({ account, client, contextTokens, threadStore,
     message: { ...message, group_id: "group", context_token: "context" } });
   assert.equal(contextTokens.get("group"), "context");
   assert.equal(contextTokens.get("sender"), "context");
