@@ -44,13 +44,13 @@
 - `npm test` cleans, builds and runs tests from compiled output.
 - The published binary is `dist/cli.mjs` during the JavaScript build step, then `dist/cli.js` after Task 2 migrates the CLI.
 
-- [ ] Add a smoke test that runs the package entry with `help` and checks expected output.
-- [ ] Run the test and confirm it fails because the compiled entry does not exist yet.
-- [ ] Add the TypeScript toolchain as development dependencies and create a NodeNext config with `allowJs` for the migration period.
-- [ ] Add clean, build, check, test, and prepack scripts. Ignore generated output.
-- [ ] Verify `npm run check`, `npm run build`, and the smoke test. Re-run build after deleting `dist/` and confirm stale files cannot survive.
-- [ ] Run `npm pack --dry-run --json`; assert the bin target and runtime files are present and tests are absent.
-- [ ] Commit as `build: add compiled TypeScript package pipeline`.
+- [x] Add a smoke test that runs the package entry with `help` and checks expected output.
+- [x] Run the test and confirm it fails because the compiled entry does not exist yet.
+- [x] Add the TypeScript toolchain as development dependencies and create a NodeNext config with `allowJs` for the migration period.
+- [x] Add clean, build, check, test, and prepack scripts. Ignore generated output.
+- [x] Verify `npm run check`, `npm run build`, and the smoke test. Re-run build after deleting `dist/` and confirm stale files cannot survive.
+- [x] Run `npm pack --dry-run --json`; assert the bin target and runtime files are present and tests are absent.
+- [x] Commit as `build: add compiled TypeScript package pipeline`.
 
 ### Task 2: Migrate CLI and runtime modules
 
@@ -64,13 +64,13 @@
 - Import local modules with `.js` suffixes under NodeNext.
 - Parse untrusted boundary values from `unknown` before using them.
 
-- [ ] Convert one pure module and update its test to import the built `.js` module.
-- [ ] Run type checking and its targeted test to verify the converted module compiles and behaves the same.
-- [ ] Convert remaining runtime modules in groups by responsibility, enable strict checking, and resolve types at API and process boundaries.
-- [ ] Update the npm binary and package allowlist to the `.js` CLI and selected `dist/` runtime directories.
-- [ ] Run targeted tests after each group and the complete test suite after the conversion.
-- [ ] Verify all app files in `cli.ts`, `src/`, and Node scripts have no `.mjs` source remaining.
-- [ ] Commit as `refactor: migrate bridge runtime to TypeScript`.
+- [x] Convert one pure module and update its test to import the built `.js` module.
+- [x] Run type checking and its targeted test to verify the converted module compiles and behaves the same.
+- [x] Convert remaining runtime modules in groups by responsibility, enable strict checking, and resolve types at API and process boundaries.
+- [x] Update the npm binary and package allowlist to the `.js` CLI and selected `dist/` runtime directories.
+- [x] Run targeted tests after each group and the complete test suite after the conversion.
+- [x] Verify all app files in `cli.ts`, `src/`, and Node scripts have no `.mjs` source remaining.
+- [x] Commit as `refactor: migrate bridge runtime to TypeScript`.
 
 ### Task 3: Migrate tests and cover critical external boundaries
 

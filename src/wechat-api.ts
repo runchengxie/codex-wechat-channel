@@ -6,7 +6,19 @@ import {
   DEFAULT_WECHAT_BASE_URL,
   PACKAGE_VERSION,
   ensureDir,
-} from "./constants.mjs";
+} from "./constants.js";
+
+import { object, string } from "./protocol.js";
+import { updatesFromJson, type Account, type WechatMessage, type MediaItem, type ExtractedContent } from "./wechat-types.js";
+
+interface QrCode { qrcode: string; qrcode_img_content: string }
+interface QrStatus {
+  status: string;
+  ilink_bot_id?: string;
+  bot_token?: string;
+  baseurl?: string;
+  ilink_user_id?: string;
+}
 
 const MSG_TYPE_USER = 1;
 const MSG_TYPE_BOT = 2;
@@ -25,8 +37,8 @@ function randomWechatUin() {
   return Buffer.from(String(uint32), "utf8").toString("base64");
 }
 
-function buildHeaders(token, body) {
-  const headers = {
+function buildHeaders(token: string | undefined, body: string | undefined) {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     AuthorizationType: "ilink_bot_token",
     "X-WECHAT-UIN": randomWechatUin(),
@@ -51,7 +63,7 @@ async function apiFetch({
   timeoutMs,
   method = "POST",
   extraHeaders = {},
-}) {
+}: { baseUrl: string; endpoint: string; body?: string; token?: string; timeoutMs: number; method?: string; extraHeaders?: Record<string, string> }) {
   const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const url = new URL(endpoint, base).toString();
   const response = await fetch(url, {
@@ -83,10 +95,11 @@ export async function fetchQrCode(baseUrl = DEFAULT_WECHAT_BASE_URL) {
     throw new Error(`QR fetch failed: ${response.status}`);
   }
 
-  return response.json();
+  const data = object(await response.json());
+  return { qrcode: string(data.qrcode), qrcode_img_content: string(data.qrcode_img_content) };
 }
 
-export async function pollQrStatus(baseUrl, qrcode) {
+export async function pollQrStatus(baseUrl: string, qrcode: string): Promise<QrStatus> {
   const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const url = new URL(
     `ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(qrcode)}`,
@@ -103,7 +116,12 @@ export async function pollQrStatus(baseUrl, qrcode) {
       throw new Error(`QR status failed: ${response.status}`);
     }
 
-    return response.json();
+    const data = object(await response.json());
+    const status: QrStatus = { status: string(data.status) };
+    for (const key of ["ilink_bot_id", "bot_token", "baseurl", "ilink_user_id"] as const) {
+      if (data[key] != null) status[key] = string(data[key]);
+    }
+    return status;
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
       return { status: "wait" };
@@ -113,7 +131,7 @@ export async function pollQrStatus(baseUrl, qrcode) {
   }
 }
 
-export async function loginWithQr({ baseUrl = DEFAULT_WECHAT_BASE_URL, onQr }) {
+export async function loginWithQr({ baseUrl = DEFAULT_WECHAT_BASE_URL, onQr }: { baseUrl?: string; onQr?: (qr: QrCode) => void | Promise<void> }): Promise<Account> {
   const qr = await fetchQrCode(baseUrl);
   if (typeof onQr === "function") {
     await onQr(qr);
@@ -149,7 +167,7 @@ export async function loginWithQr({ baseUrl = DEFAULT_WECHAT_BASE_URL, onQr }) {
   throw new Error("QR login timed out");
 }
 
-export async function getUpdates(account, getUpdatesBuf) {
+export async function getUpdates(account: Account, getUpdatesBuf: string) {
   try {
     const raw = await apiFetch({
       baseUrl: account.baseUrl,
@@ -161,7 +179,7 @@ export async function getUpdates(account, getUpdatesBuf) {
       token: account.token,
       timeoutMs: LONG_POLL_TIMEOUT_MS,
     });
-    return JSON.parse(raw);
+    return updatesFromJson(JSON.parse(raw));
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
       return { ret: 0, msgs: [], get_updates_buf: getUpdatesBuf };
@@ -171,7 +189,7 @@ export async function getUpdates(account, getUpdatesBuf) {
   }
 }
 
-export function extractContent(message) {
+export function extractContent(message: WechatMessage): ExtractedContent | null {
   if (!Array.isArray(message.item_list) || message.item_list.length === 0) {
     return null;
   }
@@ -240,14 +258,14 @@ export function extractContent(message) {
   return null;
 }
 
-function decryptAesEcb(data, keyBase64) {
+function decryptAesEcb(data: Buffer, keyBase64: string) {
   const key = Buffer.from(keyBase64, "base64");
   const decipher = crypto.createDecipheriv("aes-128-ecb", key, null);
   decipher.setAutoPadding(true);
   return Buffer.concat([decipher.update(data), decipher.final()]);
 }
 
-async function downloadAndDecryptMedia(cdnUrl, aesKeyBase64) {
+async function downloadAndDecryptMedia(cdnUrl: string, aesKeyBase64: string) {
   const response = await fetch(cdnUrl, {
     signal: AbortSignal.timeout(30_000),
   });
@@ -260,7 +278,7 @@ async function downloadAndDecryptMedia(cdnUrl, aesKeyBase64) {
   return decryptAesEcb(encrypted, aesKeyBase64);
 }
 
-function guessImageExtension(buffer) {
+function guessImageExtension(buffer: Buffer) {
   if (
     buffer.length >= 8 &&
     buffer.subarray(0, 8).equals(Buffer.from("89504E470D0A1A0A", "hex"))
@@ -285,7 +303,7 @@ function guessImageExtension(buffer) {
   return ".bin";
 }
 
-export async function downloadImageAttachment({ mediaItem, outputDir, fileStem }) {
+export async function downloadImageAttachment({ mediaItem, outputDir, fileStem }: { mediaItem: MediaItem; outputDir: string; fileStem: string }) {
   if (!mediaItem?.cdn_url || !mediaItem?.aes_key) {
     return null;
   }
@@ -302,7 +320,7 @@ function generateClientId() {
   return `codex-wechat:${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
-async function getTypingTicket(account, toUserId, contextToken) {
+async function getTypingTicket(account: Account, toUserId: string, contextToken: string) {
   try {
     const raw = await apiFetch({
       baseUrl: account.baseUrl,
@@ -315,13 +333,14 @@ async function getTypingTicket(account, toUserId, contextToken) {
       token: account.token,
       timeoutMs: 5000,
     });
-    return JSON.parse(raw).typing_ticket ?? null;
+    const ticket = object(JSON.parse(raw)).typing_ticket;
+    return ticket == null ? null : string(ticket);
   } catch {
     return null;
   }
 }
 
-async function sendTyping(account, toUserId, contextToken, typingTicket) {
+async function sendTyping(account: Account, toUserId: string, contextToken: string, typingTicket: string) {
   await apiFetch({
     baseUrl: account.baseUrl,
     endpoint: "ilink/bot/sendtyping",
@@ -336,14 +355,14 @@ async function sendTyping(account, toUserId, contextToken, typingTicket) {
   });
 }
 
-export async function showTypingIndicator(account, toUserId, contextToken) {
+export async function showTypingIndicator(account: Account, toUserId: string, contextToken: string) {
   const ticket = await getTypingTicket(account, toUserId, contextToken);
   if (ticket) {
     await sendTyping(account, toUserId, contextToken, ticket);
   }
 }
 
-export async function sendTextMessage(account, toUserId, text, contextToken) {
+export async function sendTextMessage(account: Account, toUserId: string, text: string, contextToken: string) {
   await apiFetch({
     baseUrl: account.baseUrl,
     endpoint: "ilink/bot/sendmessage",
@@ -369,19 +388,19 @@ export async function sendTextMessage(account, toUserId, text, contextToken) {
   });
 }
 
-export function isInboundUserMessage(message) {
+export function isInboundUserMessage(message: WechatMessage) {
   return message?.message_type === MSG_TYPE_USER;
 }
 
-export function getReplyTarget(message) {
+export function getReplyTarget(message: WechatMessage) {
   return message.group_id || message.from_user_id || null;
 }
 
-export function getConversationKey(message) {
+export function getConversationKey(message: WechatMessage) {
   return getReplyTarget(message);
 }
 
-export function normalizeWechatText(text) {
+export function normalizeWechatText(text: string) {
   return String(text || "")
     .replace(/\r\n/g, "\n")
     .replace(/```[a-zA-Z0-9_-]*\n?/g, "")
@@ -390,6 +409,6 @@ export function normalizeWechatText(text) {
     .trim();
 }
 
-function sleep(ms) {
+function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

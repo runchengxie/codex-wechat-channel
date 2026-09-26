@@ -1,13 +1,13 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { CodexAppServerClient } from "../src/codex-app-server.mjs";
+import { CodexAppServerClient } from "../src/codex-app-server.js";
 
 function isMainModule() {
   return process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 }
 
-export async function runProbe(options = {}) {
+export async function runProbe(options: { cwd?: string; deadlineMs?: number } = {}) {
   const client = new CodexAppServerClient({
     cwd: options.cwd || process.cwd(),
     approvalPolicy: "never",
@@ -26,14 +26,14 @@ export async function runProbe(options = {}) {
     process.stderr.write("[probe] connect\n");
     await Promise.race([
       client.connect(),
-      new Promise((_, reject) =>
+      new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("connect timeout")), deadline),
       ),
     ]);
     process.stderr.write("[probe] connected\n");
     const thread = await Promise.race([
       client.createThread({ name: "probe" }),
-      new Promise((_, reject) =>
+      new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("thread start timeout")), deadline),
       ),
     ]);
@@ -46,7 +46,7 @@ export async function runProbe(options = {}) {
           text_elements: [],
         },
       ]),
-      new Promise((_, reject) =>
+      new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("turn timeout")), deadline),
       ),
     ]);

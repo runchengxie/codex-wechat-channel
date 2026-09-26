@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const compiledOutputDirectory = path.basename(path.dirname(testDirectory)) === "dist";
 const cliPath = compiledOutputDirectory
-  ? path.resolve(testDirectory, "..", "cli.mjs")
-  : path.resolve(testDirectory, "..", "dist", "cli.mjs");
+  ? path.resolve(testDirectory, "..", "cli.js")
+  : path.resolve(testDirectory, "..", "dist", "cli.js");
 
 test("the compiled CLI package entry prints help", () => {
   const output = execFileSync(

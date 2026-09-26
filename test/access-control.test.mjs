@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isSenderAllowed, parseAllowedUsers } from "../src/access-control.mjs";
+import { isSenderAllowed, parseAllowedUsers } from "../src/access-control.js";
 
 test("an empty allowlist preserves the current allow-all behavior", () => {
   assert.deepEqual([...parseAllowedUsers(undefined)], []);

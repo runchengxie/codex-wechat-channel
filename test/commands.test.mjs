@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { parseWechatCommand, runWechatCommand } from "../src/commands.mjs";
+import { parseWechatCommand, runWechatCommand } from "../src/commands.js";
 
 function fakeClient() {
   return {

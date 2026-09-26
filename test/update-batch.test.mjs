@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { processUpdateBatch } from "../src/update-batch.mjs";
+import { processUpdateBatch } from "../src/update-batch.js";
 
 test("the update cursor is saved only after every dispatched message finishes", async () => {
   const events = [];

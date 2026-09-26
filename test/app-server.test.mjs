@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CodexAppServerClient } from "../src/codex-app-server.mjs";
+import { CodexAppServerClient } from "../src/codex-app-server.js";
 
 test("compaction waits for completion notification", async () => {
   const client = new CodexAppServerClient();

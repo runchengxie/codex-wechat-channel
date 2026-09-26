@@ -7,14 +7,16 @@ import {
   ensureDir,
   loadJson,
   saveJson,
-} from "./constants.mjs";
-import { loginWithQr } from "./wechat-api.mjs";
+} from "./constants.js";
+import { loginWithQr } from "./wechat-api.js";
 
-function log(message) {
+import { accountFromJson, type Account } from "./wechat-types.js";
+
+function log(message: string): void {
   process.stderr.write(`[setup] ${message}\n`);
 }
 
-async function shouldRelogin() {
+async function shouldRelogin(): Promise<boolean> {
   const rl = readline.createInterface({ input, output });
   try {
     const answer = await rl.question("Existing account found. Re-login? [y/N] ");
@@ -24,10 +26,13 @@ async function shouldRelogin() {
   }
 }
 
-export async function runSetup(options = {}) {
+export async function runSetup(
+  options: { force?: boolean; baseUrl?: string } = {},
+): Promise<Account> {
   ensureDir(PATHS.dataDir);
 
-  const existing = loadJson(PATHS.account, null);
+  const saved = loadJson(PATHS.account, null);
+  const existing = saved === null ? null : accountFromJson(saved);
   if (existing && !options.force) {
     log(`existing account: ${existing.accountId} (${existing.savedAt})`);
     if (process.stdin.isTTY) {
@@ -44,7 +49,7 @@ export async function runSetup(options = {}) {
 
   const account = await loginWithQr({
     baseUrl: options.baseUrl || DEFAULT_WECHAT_BASE_URL,
-    onQr(qr) {
+    onQr(qr: { qrcode_img_content: string }) {
       log("scan this QR URL in WeChat or open it in a browser:");
       log(qr.qrcode_img_content);
     },

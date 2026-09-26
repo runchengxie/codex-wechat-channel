@@ -3,6 +3,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import type { CodexAppServerClient } from "./codex-app-server.js";
+import type { Model } from "./protocol.js";
+import type { ThreadRecord, ThreadStore } from "./thread-store.js";
+
+interface WechatCommand { name: string; argument: string | null; original: string }
+
 const execFileAsync = promisify(execFile);
 const MODEL_ALIASES = new Map([
   ["luna", "gpt-6-luna"],
@@ -17,16 +23,16 @@ const COMMANDS = new Set([
 ]);
 const NO_ARGUMENT_COMMANDS = new Set(["help", "config", "status", "new", "models", "compact", "fork", "review", "diff", "threads"]);
 
-function savedThreads(record) {
+function savedThreads(record: ThreadRecord) {
   return Array.isArray(record.history) ? record.history : [];
 }
 
-function rememberCurrentThread(record) {
+function rememberCurrentThread(record: ThreadRecord) {
   if (!record.threadId) return savedThreads(record);
   return [...savedThreads(record), { threadId: record.threadId, name: record.name || null, cwd: record.cwd || null }].slice(-20);
 }
 
-export function parseWechatCommand(text) {
+export function parseWechatCommand(text: string): WechatCommand | null {
   const trimmed = String(text ?? "").trim();
   if (trimmed.startsWith("//")) return null;
   const match = /^\/([a-z][a-z0-9-]*)(?:\s+([^\n]+))?\s*$/i.exec(trimmed);
@@ -35,7 +41,7 @@ export function parseWechatCommand(text) {
   return { name: COMMANDS.has(name) ? name : "unsupported", argument: match[2]?.trim() || null, original: name };
 }
 
-export function conversationSettings(client, record = {}) {
+export function conversationSettings(client: CodexAppServerClient, record: ThreadRecord = {}) {
   return {
     model: record.model ?? client.options.model ?? null,
     effort: record.effort ?? null,
@@ -44,16 +50,16 @@ export function conversationSettings(client, record = {}) {
   };
 }
 
-async function modelCatalog(client) {
+async function modelCatalog(client: CodexAppServerClient) {
   const result = await client.listModels();
   return result.filter((entry) => !entry.hidden);
 }
 
-function modelId(entry) {
+function modelId(entry: Model) {
   return entry.model || entry.id;
 }
 
-async function gitSummary(cwd) {
+async function gitSummary(cwd: string) {
   try {
     await execFileAsync("git", ["-C", cwd, "rev-parse", "--is-inside-work-tree"], { timeout: 5_000 });
   } catch {
@@ -69,7 +75,7 @@ async function gitSummary(cwd) {
   return ["Git status:", status.stdout.trim() || "clean", "", "Diff stat:", diff.stdout.trim() || "no tracked changes"].join("\n").slice(0, 3500);
 }
 
-export async function runWechatCommand({ command, client, threadStore, conversationKey }) {
+export async function runWechatCommand({ command, client, threadStore, conversationKey }: { command: WechatCommand; client: CodexAppServerClient; threadStore: ThreadStore; conversationKey: string }): Promise<string> {
   const record = threadStore[conversationKey] || {};
   const settings = conversationSettings(client, record);
   const argument = command.argument;

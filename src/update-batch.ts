@@ -1,4 +1,14 @@
-export async function processUpdateBatch({ response, dispatch, saveCursor }) {
+import type { WechatMessage, Updates } from "./wechat-types.js";
+
+export async function processUpdateBatch({
+  response,
+  dispatch,
+  saveCursor,
+}: {
+  response: Updates;
+  dispatch: (message: WechatMessage) => Promise<void> | void;
+  saveCursor: (cursor: string) => Promise<void> | void;
+}): Promise<void> {
   const messages = response.msgs || [];
   const results = await Promise.allSettled(
     messages.map((message) => Promise.resolve().then(() => dispatch(message))),

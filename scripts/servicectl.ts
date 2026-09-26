@@ -8,11 +8,11 @@ import {
   DEFAULT_APPROVAL_POLICY,
   DEFAULT_SANDBOX,
   ensureDir,
-} from "../src/constants.mjs";
+} from "../src/constants.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const CLI_PATH = path.join(PROJECT_ROOT, "cli.mjs");
+const CLI_PATH = path.join(PROJECT_ROOT, "cli.js");
 const WATCH_SCRIPT_PATH = path.join(PROJECT_ROOT, "scripts", "watch-codex-config.sh");
 const DEFAULT_SERVICE_NAME = "codex-wechat-channel.service";
 const DEFAULT_WATCH_SERVICE_NAME = "codex-wechat-channel-watch.service";
@@ -21,7 +21,7 @@ function isMainModule() {
   return process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 }
 
-function log(message) {
+function log(message: string) {
   process.stderr.write(`[servicectl] ${message}\n`);
 }
 
@@ -44,11 +44,11 @@ function requireLinux() {
   }
 }
 
-function quoteSystemdArg(value) {
+function quoteSystemdArg(value: string) {
   return `"${String(value).replace(/(["\\$`])/g, "\\$1")}"`;
 }
 
-function capture(command, args, { allowFailure = false } = {}) {
+function capture(command: string, args: string[], { allowFailure = false } = {}) {
   const result = spawnSync(command, args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -68,7 +68,7 @@ function capture(command, args, { allowFailure = false } = {}) {
   };
 }
 
-function run(command, args, { allowFailure = false } = {}) {
+function run(command: string, args: string[], { allowFailure = false } = {}) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
   });
@@ -80,7 +80,7 @@ function run(command, args, { allowFailure = false } = {}) {
   return result.status ?? 1;
 }
 
-function commandExists(command) {
+function commandExists(command: string) {
   const result = spawnSync(command, ["--help"], {
     stdio: "ignore",
   });
@@ -103,15 +103,15 @@ function getPrivilegePrefix() {
   return ["sudo"];
 }
 
-function getSystemdPath(serviceName) {
+function getSystemdPath(serviceName: string) {
   return path.posix.join("/etc/systemd/system", serviceName);
 }
 
-function getDataDirForHome(homeDir) {
+function getDataDirForHome(homeDir: string) {
   return path.join(homeDir, ".codex", "channels", "wechat");
 }
 
-function getBridgePidForHome(homeDir) {
+function getBridgePidForHome(homeDir: string) {
   return path.join(getDataDirForHome(homeDir), "bridge.pid");
 }
 
@@ -123,7 +123,7 @@ function resolveDefaultUser() {
   return os.userInfo().username;
 }
 
-function readPasswdHome(user) {
+function readPasswdHome(user: string) {
   if (commandExists("getent")) {
     const result = capture("getent", ["passwd", user], { allowFailure: true });
     const fields = result.stdout.trim().split(":");
@@ -147,7 +147,7 @@ function readPasswdHome(user) {
   }
 }
 
-function resolveHomeDirForUser(user) {
+function resolveHomeDirForUser(user: string) {
   if (user === os.userInfo().username) {
     return os.homedir();
   }
@@ -160,7 +160,7 @@ function resolveHomeDirForUser(user) {
   return homeDir;
 }
 
-function renderBridgeService({ user, cwd, homeDir }) {
+function renderBridgeService({ user, cwd, homeDir }: { user: string; cwd: string; homeDir: string }) {
   const nodePath = process.execPath;
   const bridgePid = getBridgePidForHome(homeDir);
 
@@ -189,7 +189,7 @@ WantedBy=multi-user.target
 `;
 }
 
-function renderWatchService({ homeDir, serviceName }) {
+function renderWatchService({ homeDir, serviceName }: { homeDir: string; serviceName: string }) {
   return `[Unit]
 Description=Watch Codex MCP and skills recursively and restart ${serviceName}
 After=network-online.target ${serviceName}
@@ -212,7 +212,7 @@ function ensureSystemd() {
   }
 }
 
-function ensureInotifyTools(prefix) {
+function ensureInotifyTools(prefix: string[]) {
   if (commandExists("inotifywait")) {
     return;
   }
@@ -231,7 +231,7 @@ function ensureInotifyTools(prefix) {
   );
 }
 
-function writeFileAsRoot(prefix, targetPath, content) {
+function writeFileAsRoot(prefix: string[], targetPath: string, content: string) {
   const tempFile = path.join(os.tmpdir(), `codex-wechat-${path.basename(targetPath)}-${Date.now()}`);
   fs.writeFileSync(tempFile, content, "utf8");
   try {
@@ -245,7 +245,7 @@ function writeFileAsRoot(prefix, targetPath, content) {
   }
 }
 
-function removeFileAsRoot(prefix, targetPath) {
+function removeFileAsRoot(prefix: string[], targetPath: string) {
   if (prefix.length) {
     run(prefix[0], [...prefix.slice(1), "rm", "-f", targetPath], { allowFailure: true });
     return;
@@ -253,21 +253,21 @@ function removeFileAsRoot(prefix, targetPath) {
   run("rm", ["-f", targetPath], { allowFailure: true });
 }
 
-function runSystemctl(prefix, args, options = {}) {
+function runSystemctl(prefix: string[], args: string[], options: { allowFailure?: boolean } = {}) {
   if (prefix.length) {
     return run(prefix[0], [...prefix.slice(1), "systemctl", ...args], options);
   }
   return run("systemctl", args, options);
 }
 
-function captureSystemctl(prefix, args, options = {}) {
+function captureSystemctl(prefix: string[], args: string[], options: { allowFailure?: boolean } = {}) {
   if (prefix.length) {
     return capture(prefix[0], [...prefix.slice(1), "systemctl", ...args], options);
   }
   return capture("systemctl", args, options);
 }
 
-function resolveOptions(argv) {
+function resolveOptions(argv: string[]) {
   const defaultUser = resolveDefaultUser();
   const options = {
     cwd: process.cwd(),
@@ -323,7 +323,7 @@ function resolveOptions(argv) {
   return options;
 }
 
-async function installService(argv) {
+async function installService(argv: string[]) {
   requireLinux();
   ensureSystemd();
 
@@ -361,7 +361,7 @@ async function installService(argv) {
   log(`watch status: systemctl status ${options.watchServiceName}`);
 }
 
-async function uninstallService(argv) {
+async function uninstallService(argv: string[]) {
   requireLinux();
   ensureSystemd();
 
@@ -380,7 +380,7 @@ async function uninstallService(argv) {
   log(`removed ${watchServicePath}`);
 }
 
-async function printStatus(argv) {
+async function printStatus(argv: string[]) {
   requireLinux();
   ensureSystemd();
 

@@ -4,10 +4,10 @@
   "description": "Bridge WeChat ClawBot messages into Codex app-server threads",
   "type": "module",
   "bin": {
-    "codex-wechat-channel": "./dist/cli.mjs"
+    "codex-wechat-channel": "./dist/cli.js"
   },
   "files": [
-    "dist/cli.mjs",
+    "dist/cli.js",
     "dist/src/",
     "dist/scripts/",
     "docs/plan-and-progress.md",
@@ -15,21 +15,21 @@
     "README.md"
   ],
   "scripts": {
-    "start": "npm run build && node dist/cli.mjs start",
-    "setup": "npm run build && node dist/cli.mjs setup",
+    "start": "npm run build && node dist/cli.js start",
+    "setup": "npm run build && node dist/cli.js setup",
     "clean": "node tools/clean-build.mjs",
     "build": "npm run clean && tsc -p tsconfig.json && node tools/copy-runtime-assets.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "npm run build && node --test dist/test/*.test.mjs",
     "prepack": "npm run build",
-    "probe": "npm run build && node dist/cli.mjs probe",
-    "bridge:start": "npm run build && node dist/cli.mjs bridge start",
-    "bridge:status": "npm run build && node dist/cli.mjs bridge status",
-    "bridge:stop": "npm run build && node dist/cli.mjs bridge stop",
-    "bridge:probe": "npm run build && node dist/cli.mjs probe",
-    "service:install": "npm run build && node dist/cli.mjs service install",
-    "service:status": "npm run build && node dist/cli.mjs service status",
-    "service:uninstall": "npm run build && node dist/cli.mjs service uninstall"
+    "probe": "npm run build && node dist/cli.js probe",
+    "bridge:start": "npm run build && node dist/cli.js bridge start",
+    "bridge:status": "npm run build && node dist/cli.js bridge status",
+    "bridge:stop": "npm run build && node dist/cli.js bridge stop",
+    "bridge:probe": "npm run build && node dist/cli.js probe",
+    "service:install": "npm run build && node dist/cli.js service install",
+    "service:status": "npm run build && node dist/cli.js service status",
+    "service:uninstall": "npm run build && node dist/cli.js service uninstall"
   },
   "engines": {
     "node": ">=22"
@@ -54,7 +54,7 @@
   "homepage": "https://github.com/renqingfei/codex-wechat-channel#readme",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^26.6.3",
-    "typescript": "^7.0.2"
+    "@types/node": "^22.20.4",
+    "typescript": "^6.0.3"
   }
 }

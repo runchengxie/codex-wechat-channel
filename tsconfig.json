@@ -3,20 +3,24 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "types": ["node"],
     "rootDir": ".",
     "outDir": "dist",
     "allowJs": true,
     "checkJs": false,
-    "strict": false,
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmitOnError": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "sourceMap": true
   },
   "include": [
-    "cli.mjs",
-    "src/**/*.mjs",
-    "scripts/**/*.mjs",
+    "cli.ts",
+    "src/**/*.ts",
+    "scripts/**/*.ts",
     "test/**/*.mjs"
   ],
   "exclude": ["dist", "node_modules"]
