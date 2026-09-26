@@ -14,7 +14,7 @@ import {
   shortId,
 } from "./constants.js";
 import { CodexAppServerClient } from "./codex-app-server.js";
-import { extractTextAttachment, extractVideoFrames, type VideoFrameResult } from "./attachments.js";
+import { extractDocumentAttachment, extractTextAttachment, extractVideoFrames, type MediaCommandRunner, type VideoFrameResult } from "./attachments.js";
 import { conversationSettings, parseWechatCommand, runWechatCommand } from "./commands.js";
 import { runSetup } from "./setup.js";
 import { processUpdateBatch } from "./update-batch.js";
@@ -127,7 +127,7 @@ function buildThreadName(meta: MessageMeta) {
   return `wechat:dm:${shortId(meta.replyTarget)}`;
 }
 
-function buildUserInputs(meta: MessageMeta, extracted: ExtractedContent, localImagePaths: string[], attachmentText: string) {
+function buildUserInputs(meta: MessageMeta, extracted: ExtractedContent, localImagePaths: string[], localAudioPaths: string[], attachmentText: string) {
   const lines = [
     "WeChat inbound message.",
     `Chat type: ${meta.isGroup ? "group" : "direct"}`,
@@ -155,49 +155,84 @@ function buildUserInputs(meta: MessageMeta, extracted: ExtractedContent, localIm
     });
   }
 
+  for (const localAudioPath of localAudioPaths) {
+    inputs.push({ type: "localAudio", path: localAudioPath });
+  }
+
   return inputs;
 }
 
 interface PreparedAttachment {
   text: string;
   imagePaths: string[];
+  audioPaths: string[];
   cleanup?: () => Promise<void>;
 }
 
-async function prepareAttachment(extracted: ExtractedContent, localImagePath: string | null): Promise<PreparedAttachment> {
+async function prepareFileAttachment(mediaItem: NonNullable<ExtractedContent["mediaItem"]>) {
+  try {
+    const attachment = await extractTextAttachment(mediaItem) ?? await extractDocumentAttachment(mediaItem);
+    if (!attachment) return "\n\n[目前支持读取 txt、md、csv、json、pdf 和 docx 文件，尚不能读取此文件格式]";
+    if (!attachment.text.trim()) {
+      const explanation = attachment.fileName.toLowerCase().endsWith(".pdf")
+        ? "扫描版 PDF 暂不支持 OCR"
+        : "文档中没有可提取的文字";
+      return `\n\n[未能从附件 ${attachment.fileName} 提取到文本，${explanation}]`;
+    }
+    return `\n\n[附件内容：${attachment.fileName}]\n${attachment.text}`;
+  } catch (error) {
+    logError(`file attachment processing failed: ${errorMessage(error)}`);
+    return "\n\n[文件下载或解密失败，当前只能看到文件名等消息信息]";
+  }
+}
+
+async function prepareVideoAttachment(
+  mediaItem: NonNullable<ExtractedContent["mediaItem"]>,
+  runMediaCommand?: MediaCommandRunner,
+) {
+  let frames: VideoFrameResult | undefined;
+  try {
+    frames = await extractVideoFrames(mediaItem, PATHS.mediaDir, runMediaCommand);
+    return {
+      text: `\n\n[视频已抽取 ${frames.paths.length} 帧${frames.audioPath ? "及音轨" : ""}供分析]${frames.audioError ? "\n[视频音轨提取失败，仍可分析画面]" : ""}`,
+      imagePaths: frames.paths,
+      audioPaths: frames.audioPath ? [frames.audioPath] : [],
+      cleanup: frames.cleanup,
+    };
+  } catch (error) {
+    logError(`video attachment processing failed: ${errorMessage(error)}`);
+    await frames?.cleanup().catch(() => undefined);
+    return {
+      text: "\n\n[视频下载或抽帧失败，当前只能看到视频时长等消息信息；请确认已安装 ffmpeg 和 ffprobe]",
+      imagePaths: [],
+      audioPaths: [],
+    };
+  }
+}
+
+async function prepareAttachment(
+  extracted: ExtractedContent,
+  localImagePath: string | null,
+  runMediaCommand?: MediaCommandRunner,
+): Promise<PreparedAttachment> {
   const result: PreparedAttachment = {
     text: extracted.text,
     imagePaths: localImagePath ? [localImagePath] : [],
+    audioPaths: [],
   };
   if (!extracted.mediaItem) return result;
 
   if (extracted.msgType === "file") {
-    try {
-      const attachment = await extractTextAttachment(extracted.mediaItem);
-      if (!attachment) {
-        result.text += "\n\n[目前支持读取 txt、md、csv 和 json 文件，尚不能读取此文件格式]";
-      } else {
-        result.text += `\n\n[附件内容：${attachment.fileName}]\n${attachment.text}`;
-      }
-    } catch (error) {
-      logError(`file attachment processing failed: ${errorMessage(error)}`);
-      result.text += "\n\n[文件下载或解密失败，当前只能看到文件名等消息信息]";
-    }
+    result.text += await prepareFileAttachment(extracted.mediaItem);
     return result;
   }
 
   if (extracted.msgType === "video") {
-    let frames: VideoFrameResult | undefined;
-    try {
-      frames = await extractVideoFrames(extracted.mediaItem, PATHS.mediaDir);
-      result.imagePaths.push(...frames.paths);
-      result.cleanup = frames.cleanup;
-      result.text += `\n\n[视频已抽取 ${frames.paths.length} 帧供分析]`;
-    } catch (error) {
-      logError(`video attachment processing failed: ${errorMessage(error)}`);
-      result.text += "\n\n[视频下载或抽帧失败，当前只能看到视频时长等消息信息；请确认已安装 ffmpeg 和 ffprobe]";
-      if (frames) await frames.cleanup().catch(() => undefined);
-    }
+    const video = await prepareVideoAttachment(extracted.mediaItem, runMediaCommand);
+    result.text += video.text;
+    result.imagePaths.push(...video.imagePaths);
+    result.audioPaths.push(...video.audioPaths);
+    result.cleanup = video.cleanup;
   }
   return result;
 }
@@ -282,7 +317,15 @@ export async function processMessage({
   contextTokens,
   threadStore,
   message,
-}: { account: Account; client: CodexAppServerClient; contextTokens: Map<string, string>; threadStore: ThreadStore; message: WechatMessage }) {
+  mediaCommandRunner,
+}: {
+  account: Account;
+  client: CodexAppServerClient;
+  contextTokens: Map<string, string>;
+  threadStore: ThreadStore;
+  message: WechatMessage;
+  mediaCommandRunner?: MediaCommandRunner;
+}) {
   if (!isInboundUserMessage(message)) {
     return;
   }
@@ -345,13 +388,13 @@ export async function processMessage({
       extracted.text = extracted.text.slice(1);
     }
     const localImagePath = await maybeDownloadImage(meta, extracted);
-    const attachment = await prepareAttachment(extracted, localImagePath);
+    const attachment = await prepareAttachment(extracted, localImagePath, mediaCommandRunner);
     try {
       const threadRecord = await ensureThread(client, threadStore, conversationKey, meta);
       persistThreadStore(threadStore);
       const reply = await client.sendTurn(
         threadRecord.threadId,
-        buildUserInputs(meta, extracted, attachment.imagePaths, attachment.text),
+        buildUserInputs(meta, extracted, attachment.imagePaths, attachment.audioPaths, attachment.text),
         conversationSettings(client, threadRecord),
       );
       const finalText = normalizeWechatText(reply.text);

@@ -16,7 +16,7 @@ git submodule status
 
 报告扫描 `cli.ts`、`src/`、`scripts/`、`test/` 和 `tools/` 中的 TypeScript 与 `.mjs` 文件。生成目录、依赖目录、Markdown 和 Bash 文件不计入代码指标。JSON 包含每个文件和函数的指标，以及依赖边和调用边，适合比较两次修改。扫描顺序固定，报告不附带时间戳。
 
-2026 年 9 月 26 日的本地环境为 Node.js 24.21.0、npm 11.19.0、TypeScript 6.0.3。项目运行要求为 Node.js 22 及以上，类型定义使用 `@types/node` 22.20.4。运行时没有 npm 第三方依赖，开发依赖版本由 `package-lock.json` 固定。仓库当前没有 submodule。
+2026 年 9 月 26 日的本地环境为 Node.js 24.21.0、npm 11.19.0、TypeScript 6.0.3。项目运行要求为 Node.js 22 及以上，类型定义使用 `@types/node` 22.20.4。PDF 和 DOCX 文本提取依赖 `pdfjs-dist`、`mammoth`，依赖版本由 `package-lock.json` 固定。仓库当前没有 submodule。
 
 开发工具加入后发现旧版 SonarJS 的间接依赖存在高危告警，升级 ESLint 和 SonarJS 后，在线审计返回零漏洞。网络故障时应让审计失败，离线安装提示不能替代在线核查。后续以当前锁文件的 `npm audit` 结果为准。
 
@@ -73,7 +73,7 @@ c8 从编译输出采集覆盖率并映射回源码。`--all` 将未加载的生
 
 微信轮询返回消息和游标。消息按会话排队，进入命令处理或 Codex 对话。回复发送完成后，该批次才保存游标。错误通知发送失败时，批次失败并保留旧游标，下次轮询可能再次取得这些消息。当前没有持久化的逐消息去重记录。
 
-账号信息、上下文令牌、线程记录和游标写在用户目录的 `~/.codex/channels/wechat/`。图片经过下载和解密，保存在该目录的 `media/` 下，再以本地图片输入传给 Codex。txt、md、csv、json 附件下载并解密后只把限长文本传给 Codex。视频下载到 `media/` 临时目录，用系统中的 `ffprobe` 检查时长，再由 `ffmpeg` 抽取最多 6 帧作为本地图片输入，回合处理完成后清理临时文件。消息类型保留 `group_id` 字段的解析，但当前微信 iOS ClawBot 接入方式只支持私聊，群聊尚未作为受支持功能。日志会包含部分消息和回复文本，不能当作不含用户内容的普通构建日志发布。
+账号信息、上下文令牌、线程记录和游标写在用户目录的 `~/.codex/channels/wechat/`。图片经过下载和解密，保存在该目录的 `media/` 下，再以本地图片输入传给 Codex。txt、md、csv、json、pdf、docx 附件下载并解密后只把限长文本传给 Codex。PDF 最多提取前 100 页，不做 OCR。DOCX 使用 Mammoth 提取纯文本。视频下载到 `media/` 临时目录，用系统中的 `ffprobe` 检查时长，再由 `ffmpeg` 抽取最多 6 帧和受限 MP3 音轨，分别作为本地图片和音频输入传给 Codex，回合处理完成后清理临时文件。消息类型保留 `group_id` 字段的解析，但当前微信 iOS ClawBot 接入方式只支持私聊，群聊尚未作为受支持功能。日志会包含部分消息和回复文本，不能当作不含用户内容的普通构建日志发布。
 
 源码经过 `tsc` 生成 `dist/` 中的 ESM JavaScript。构建脚本另将 Bash 监视脚本复制到发布路径，`package.json` 的 `files` 字段决定 npm 包内容，`bin` 指向 `dist/cli.js`。使用者运行已编译的 JavaScript，开发和 CI 使用 TypeScript、类型定义及后续质量检查工具。`dist/` 和覆盖率输出不提交到 Git。
 
