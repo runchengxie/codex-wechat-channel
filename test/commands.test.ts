@@ -27,14 +27,14 @@ function fakeClient(): CodexAppServerClient {
   return client;
 }
 
-test("slash parser recognizes commands and rejects unsupported names", () => {
+await test("slash parser recognizes commands and rejects unsupported names", () => {
   assert.deepEqual(parseWechatCommand("/model luna"), { name: "model", argument: "luna", original: "model" });
   assert.deepEqual(parseWechatCommand("/plan"), { name: "unsupported", argument: null, original: "plan" });
   assert.equal(parseWechatCommand("hello"), null);
   assert.equal(parseWechatCommand("//model luna"), null);
 });
 
-test("model and effort are stored per conversation and survive /new", async () => {
+await test("model and effort are stored per conversation and survive /new", async () => {
   const client = fakeClient();
   const threadStore: ThreadStore = { first: { threadId: "old-thread" }, second: { threadId: "other-thread" } };
   const run = (conversationKey: string, text: string) => runWechatCommand({ command: command(text), client, threadStore, conversationKey });
@@ -54,7 +54,7 @@ test("model and effort are stored per conversation and survive /new", async () =
   assert.equal(threadStore.first.threadId, "old-thread");
 });
 
-test("compact and fork use the current thread, and permissions do not escalate", async () => {
+await test("compact and fork use the current thread, and permissions do not escalate", async () => {
   const client = fakeClient();
   const calls: unknown[][] = [];
   client.compactThread = async (threadId) => { calls.push(["compact", threadId]); };
@@ -73,7 +73,7 @@ test("compact and fork use the current thread, and permissions do not escalate",
   assert.equal("sandbox" in threadStore.first, false);
 });
 
-test("switching models clears an unsupported effort", async () => {
+await test("switching models clears an unsupported effort", async () => {
   const client = fakeClient();
   const threadStore: ThreadStore = { first: { model: "gpt-6-sol", effort: "high" } };
   const response = await runWechatCommand({ command: command("/model luna"), client, threadStore, conversationKey: "first" });
@@ -82,7 +82,7 @@ test("switching models clears an unsupported effort", async () => {
   assert.equal(threadStore.first.effort, null);
 });
 
-test("cwd accepts a Git worktree below the bridge root and rejects traversal", async () => {
+await test("cwd accepts a Git worktree below the bridge root and rejects traversal", async () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "wechat-cwd-"));
   const root = path.join(base, "root");
   const repo = path.join(root, "repo");

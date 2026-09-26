@@ -118,12 +118,12 @@
 - `npm run lint` checks all application TypeScript and tests.
 - Rules reject unused code, explicit `any`, unsafe suppressions, and complexity/depth beyond thresholds recorded by Task 4.
 
-- [ ] Add lint configuration and verify the command parses all intended source and test files.
-- [ ] Run lint and record existing violations by category against the Task 4 report.
-- [ ] Add tests before each behavior-preserving extraction from a high-complexity hotspot.
-- [ ] Refactor only findings that exceed recorded thresholds, with no broad formatting-only rewrite.
-- [ ] Run lint and all tests; ensure no blanket file or rule disables were added.
-- [ ] Commit as `chore: enforce TypeScript quality rules`.
+- [x] Add lint configuration and verify the command parses all intended source and test files.
+- [x] Run lint and record existing violations by category against the Task 4 report.
+- [x] Add tests before each behavior-preserving extraction from a high-complexity hotspot.
+- [x] Refactor only findings that exceed recorded thresholds, with no broad formatting-only rewrite.
+- [x] Run lint and all tests; ensure no blanket file or rule disables were added.
+- [x] Commit as `chore: enforce TypeScript quality rules`.
 
 ### Task 6: CI, coverage, and contributor documentation
 

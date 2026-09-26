@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CodexAppServerClient } from "../src/codex-app-server.js";
-import { processMessage } from "../src/start.js";
+import { processMessage, runStart } from "../src/start.js";
+import fs from "node:fs";
+import { PATHS } from "../src/constants.js";
+import { temporaryData } from "./helpers.js";
 import { processUpdateBatch } from "../src/update-batch.js";
 import type { WechatMessage } from "../src/wechat-types.js";
 
@@ -12,7 +15,7 @@ const message: WechatMessage = {
   item_list: [{ type: 1, text_item: { text: "hello" } }],
 };
 
-test("the message pipeline rejects unlisted senders before connecting or sending", async (t) => {
+await test("the message pipeline rejects unlisted senders before connecting or sending", async (t) => {
   const client = new CodexAppServerClient();
   const connect = t.mock.method(client, "connect", async () => assert.fail("must not connect"));
   const fetch = t.mock.method(globalThis, "fetch", async () => assert.fail("must not send"));
@@ -22,7 +25,7 @@ test("the message pipeline rejects unlisted senders before connecting or sending
 });
 
 for (const delivered of [true, false]) {
-  test(`the real failure-notice pipeline ${delivered ? "advances" : "holds"} the cursor`, async (t) => {
+  await test(`the real failure-notice pipeline ${delivered ? "advances" : "holds"} the cursor`, async (t) => {
     const client = new CodexAppServerClient();
     t.mock.method(client, "connect", async () => { throw new Error("Codex unavailable"); });
     const sent: unknown[] = [];
@@ -49,3 +52,55 @@ for (const delivered of [true, false]) {
     assert.match(JSON.stringify(sent), /Codex unavailable/);
   });
 }
+
+await test("normal messages create and persist threads, reuse context, and send replies", async (t) => {
+  temporaryData(t);
+  const client = new CodexAppServerClient();
+  t.mock.method(client, "connect", async () => {});
+  t.mock.method(client, "createThread", async () => ({ id: "thread" }));
+  t.mock.method(client, "sendTurn", async (threadId: string) => {
+    assert.equal(threadId, "thread");
+    return { text: "`answer`", commentary: "" };
+  });
+  const sent: string[] = [];
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    if (String(input).endsWith("/getconfig")) return Response.json({});
+    sent.push(String(init?.body));
+    return Response.json({ ret: 0 });
+  });
+  const contextTokens = new Map<string, string>();
+  const threadStore = {};
+  await processMessage({ account, client, contextTokens, threadStore, allowedUsers: new Set(),
+    message: { ...message, group_id: "group", context_token: "context" } });
+  assert.equal(contextTokens.get("group"), "context");
+  assert.equal(contextTokens.get("sender"), "context");
+  assert.match(fs.readFileSync(PATHS.threads, "utf8"), /"threadId": "thread"/);
+  assert.match(sent[0], /answer/);
+  assert.doesNotMatch(sent[0], /`answer`/);
+});
+
+await test("startup loads saved state, polls and persists the cursor, then handles shutdown", async (t) => {
+  temporaryData(t);
+  fs.writeFileSync(PATHS.account, JSON.stringify(account));
+  fs.writeFileSync(PATHS.contextTokens, JSON.stringify({ sender: "context" }));
+  const originalInt = new Set(process.listeners("SIGINT"));
+  const originalTerm = new Set(process.listeners("SIGTERM"));
+  t.after(() => {
+    for (const listener of process.listeners("SIGINT")) if (!originalInt.has(listener)) process.removeListener("SIGINT", listener);
+    for (const listener of process.listeners("SIGTERM")) if (!originalTerm.has(listener)) process.removeListener("SIGTERM", listener);
+  });
+  t.mock.method(CodexAppServerClient.prototype, "connect", async () => {});
+  const close = t.mock.method(CodexAppServerClient.prototype, "close", async () => {});
+  const exit = t.mock.method(process, "exit", () => {});
+  let polls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    polls += 1;
+    if (polls === 2) process.emit("SIGINT");
+    return Response.json({ ret: 0, msgs: [], get_updates_buf: `cursor-${polls}` });
+  });
+  await runStart({ cwd: process.cwd() });
+  assert.equal(polls, 2);
+  assert.equal(fs.readFileSync(PATHS.syncBuf, "utf8"), "cursor-2");
+  assert.equal(close.mock.callCount(), 1);
+  assert.equal(exit.mock.callCount(), 1);
+});

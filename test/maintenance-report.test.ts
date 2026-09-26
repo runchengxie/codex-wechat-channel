@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeSources } from "../tools/maintenance-report.js";
 
-test("the AST report measures branches, excludes nested function decisions, and resolves imports and calls", () => {
+await test("the AST report measures branches, excludes nested function decisions, and resolves imports and calls", () => {
   const report = analyzeSources({
     "a.ts": 'import { b } from "./b.js";\nexport function a(value: boolean) {\n  if (value) { while (value) { b(); break; } }\n  return () => value ? 1 : 0;\n}\n',
     "b.ts": 'import { a } from "./a.js";\nexport function b() { return a(false); }\n',
@@ -19,7 +19,7 @@ test("the AST report measures branches, excludes nested function decisions, and 
   assert.ok(report.calls.some((edge) => edge.from.endsWith(":b") && edge.to.endsWith(":a")));
 });
 
-test("logical decisions, switch cases, empty files, and type-only imports have documented counts", () => {
+await test("logical decisions, switch cases, empty files, and type-only imports have documented counts", () => {
   const report = analyzeSources({
     "empty.ts": "",
     "types.ts": "export interface Shape { value: number }\n",

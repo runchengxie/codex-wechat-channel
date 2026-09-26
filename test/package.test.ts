@@ -10,7 +10,7 @@ const cliPath = compiledOutputDirectory
   ? path.resolve(testDirectory, "..", "cli.js")
   : path.resolve(testDirectory, "..", "dist", "cli.js");
 
-test("the compiled CLI package entry prints help", () => {
+await test("the compiled CLI package entry prints help", () => {
   const output = execFileSync(
     process.execPath,
     [cliPath, "help"],

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { processUpdateBatch } from "../src/update-batch.js";
 
-test("the update cursor is saved only after every dispatched message finishes", async () => {
+await test("the update cursor is saved only after every dispatched message finishes", async () => {
   const events: string[] = [];
   let finishMessage!: () => void;
   const messageDone = new Promise<void>((resolve) => {
@@ -32,7 +32,7 @@ test("the update cursor is saved only after every dispatched message finishes", 
   ]);
 });
 
-test("a failed message prevents cursor advancement after the rest of the batch settles", async () => {
+await test("a failed message prevents cursor advancement after the rest of the batch settles", async () => {
   const events: string[] = [];
   let finishSlowMessage!: () => void;
   const slowMessageDone = new Promise<void>((resolve) => {
@@ -67,7 +67,7 @@ test("a failed message prevents cursor advancement after the rest of the batch s
   ]);
 });
 
-test("an empty batch can advance a returned cursor", async () => {
+await test("an empty batch can advance a returned cursor", async () => {
   const saved: string[] = [];
 
   await processUpdateBatch({
@@ -79,7 +79,7 @@ test("an empty batch can advance a returned cursor", async () => {
   assert.deepEqual(saved, ["cursor-2"]);
 });
 
-test("a delivered failure notice completes the message, but a failed notice holds the cursor", async () => {
+await test("a delivered failure notice completes the message, but a failed notice holds the cursor", async () => {
   const saved: string[] = [];
   await processUpdateBatch({
     response: { msgs: [{ id: "codex-failed" }], get_updates_buf: "cursor-2" },

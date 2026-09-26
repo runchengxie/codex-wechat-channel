@@ -7,6 +7,20 @@ function isMainModule() {
   return process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 }
 
+async function withDeadline<T>(operation: Promise<T>, deadlineMs: number, label: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(`${label} timeout`)), deadlineMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function runProbe(options: { cwd?: string; deadlineMs?: number } = {}) {
   const client = new CodexAppServerClient({
     cwd: options.cwd || process.cwd(),
@@ -24,32 +38,15 @@ export async function runProbe(options: { cwd?: string; deadlineMs?: number } = 
   try {
     const deadline = options.deadlineMs || 30_000;
     process.stderr.write("[probe] connect\n");
-    await Promise.race([
-      client.connect(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("connect timeout")), deadline),
-      ),
-    ]);
+    await withDeadline(client.connect(), deadline, "connect");
     process.stderr.write("[probe] connected\n");
-    const thread = await Promise.race([
-      client.createThread({ name: "probe" }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("thread start timeout")), deadline),
-      ),
-    ]);
+    const thread = await withDeadline(client.createThread({ name: "probe" }), deadline, "thread start");
     process.stderr.write(`[probe] thread ${thread.id}\n`);
-    const result = await Promise.race([
-      client.sendTurn(thread.id, [
-        {
-          type: "text",
-          text: "Reply with exactly: PONG",
-          text_elements: [],
-        },
-      ]),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("turn timeout")), deadline),
-      ),
-    ]);
+    const result = await withDeadline(client.sendTurn(thread.id, [{
+      type: "text",
+      text: "Reply with exactly: PONG",
+      text_elements: [],
+    }]), deadline, "turn");
     process.stderr.write("[probe] turn completed\n");
     console.log(result.text);
     return result;

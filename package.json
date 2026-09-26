@@ -30,7 +30,9 @@
     "service:install": "npm run build && node dist/cli.js service install",
     "service:status": "npm run build && node dist/cli.js service status",
     "service:uninstall": "npm run build && node dist/cli.js service uninstall",
-    "audit:code": "npm run build && node dist/tools/maintenance-report.js"
+    "audit:code": "npm run build && node dist/tools/maintenance-report.js",
+    "lint": "eslint cli.ts src scripts test tools",
+    "test:coverage": "npm run build && c8 --all --include=\"dist/cli.js\" --include=\"dist/src/**/*.js\" --include=\"dist/scripts/**/*.js\" --exclude=\"dist/test/**\" --exclude=\"dist/tools/**\" --check-coverage --lines=70 --branches=60 --functions=60 --reporter=text --reporter=json-summary node --test dist/test/*.test.js && node dist/tools/check-coverage.js"
   },
   "engines": {
     "node": ">=22"
@@ -56,6 +58,10 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.20.4",
-    "typescript": "^6.0.3"
+    "c8": "^12.0.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-sonarjs": "^4.2.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1"
   }
 }
