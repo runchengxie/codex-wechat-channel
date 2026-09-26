@@ -82,6 +82,25 @@ await test("switching models clears an unsupported effort", async () => {
   assert.equal(threadStore.first.effort, null);
 });
 
+await test("permissions change only this chat, retain history, and survive new conversations", async () => {
+  const client = fakeClient();
+  client.options.sandbox = "danger-full-access";
+  client.loadedThreads.add("existing");
+  const threadStore: ThreadStore = { first: { threadId: "existing" }, second: { threadId: "other" } };
+  const run = (text: string) => runWechatCommand({ command: command(text), client, threadStore, conversationKey: "first" });
+  await run("/permissions workspace-write");
+  assert.deepEqual(threadStore.first, { threadId: "existing", sandbox: "workspace-write" });
+  assert.deepEqual(threadStore.second, { threadId: "other" });
+  assert.equal(client.isThreadLoaded("existing"), false);
+  assert.equal(client.options.sandbox, "danger-full-access");
+  assert.match(await run("/permissions"), /workspace-write/);
+  await run("/new");
+  assert.equal(Reflect.get(threadStore.first, "sandbox"), "workspace-write");
+  await run("/permissions danger-full-access");
+  assert.equal(Reflect.get(threadStore.first, "sandbox"), "danger-full-access");
+  assert.match(await run("/permissions invalid"), /read-only.*workspace-write.*danger-full-access/);
+});
+
 await test("cwd accepts a Git worktree below the bridge root and rejects traversal", async () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "wechat-cwd-"));
   const root = path.join(base, "root");

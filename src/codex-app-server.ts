@@ -11,8 +11,9 @@ import {
 } from "./constants.js";
 
 import { errorMessage, object, string, model, type Model, type ThreadSettings, type UserInput, type TurnResult } from "./protocol.js";
+import { effectiveSandbox } from "./sandbox.js";
 
-interface ClientOptions extends ThreadSettings {
+interface ClientOptions extends Omit<ThreadSettings, "sandbox"> {
   sandbox?: string;
   approvalPolicy?: string;
   codexBin?: string;
@@ -537,12 +538,16 @@ export class CodexAppServerClient {
     return this.loadedThreads.has(threadId);
   }
 
+  invalidateLoadedThread(threadId: string): void {
+    this.loadedThreads.delete(threadId);
+  }
+
   buildThreadParams(settings: ThreadSettings = {}) {
     return {
       cwd: settings.cwd || this.options.cwd,
       model: settings.model ?? this.options.model ?? null,
       approvalPolicy: this.options.approvalPolicy,
-      sandbox: this.options.sandbox,
+      sandbox: effectiveSandbox(settings.sandbox, this.options.sandbox),
       serviceName: this.options.serviceName,
       developerInstructions: this.options.developerInstructions,
       experimentalRawEvents: false,
@@ -565,7 +570,7 @@ export class CodexAppServerClient {
       cwd: settings.cwd || this.options.cwd,
       model: settings.model ?? this.options.model ?? null,
       approvalPolicy: this.options.approvalPolicy,
-      sandbox: this.options.sandbox,
+      sandbox: effectiveSandbox(settings.sandbox, this.options.sandbox),
       developerInstructions: this.options.developerInstructions,
       persistExtendedHistory: false,
     });
@@ -649,7 +654,7 @@ export class CodexAppServerClient {
       threadId,
       model: settings.model ?? this.options.model ?? null,
       cwd: settings.cwd || this.options.cwd,
-      sandbox: this.options.sandbox,
+      sandbox: effectiveSandbox(settings.sandbox, this.options.sandbox),
       approvalPolicy: this.options.approvalPolicy,
     });
     this.loadedThreads.add(string(object(object(result).thread).id));

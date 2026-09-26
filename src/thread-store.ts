@@ -1,4 +1,5 @@
 import { object, string, type ThreadSettings } from "./protocol.js";
+import { parseSandboxMode } from "./sandbox.js";
 
 export interface SavedThread {
   threadId: string;
@@ -28,6 +29,11 @@ export function isActiveThread(record: ThreadRecord | undefined): record is Acti
 function recordFromJson(value: unknown): ThreadRecord {
   const data = object(value);
   const result: ThreadRecord = {};
+  if (data.sandbox !== undefined) {
+    const sandbox = parseSandboxMode(data.sandbox);
+    if (!sandbox) throw new Error("Invalid stored sandbox mode");
+    result.sandbox = sandbox;
+  }
   for (const key of ["threadId", "cwd", "conversationKey", "lastSenderId", "lastReplyTarget", "createdAt", "updatedAt"] as const) {
     if (data[key] != null) result[key] = string(data[key]);
   }

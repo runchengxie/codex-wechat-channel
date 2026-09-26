@@ -7,6 +7,7 @@ import { PATHS } from "../src/constants.js";
 import { temporaryData } from "./helpers.js";
 import { processUpdateBatch } from "../src/update-batch.js";
 import type { WechatMessage } from "../src/wechat-types.js";
+import type { ThreadStore } from "../src/thread-store.js";
 
 const account = { token: "test-token", baseUrl: "https://wechat.invalid", accountId: "test", savedAt: "test" };
 const message: WechatMessage = {
@@ -14,6 +15,32 @@ const message: WechatMessage = {
   from_user_id: "sender",
   item_list: [{ type: 1, text_item: { text: "hello" } }],
 };
+
+await test("permission command persists the choice and resumes existing context before the next turn", async (t) => {
+  temporaryData(t);
+  const client = new CodexAppServerClient({ sandbox: "danger-full-access" });
+  client.loadedThreads.add("existing");
+  t.mock.method(client, "connect", async () => {});
+  const requests: string[] = [];
+  t.mock.method(client, "request", async (method: string, params: unknown) => {
+    requests.push(JSON.stringify({ method, params }));
+    return { thread: { id: "existing" } };
+  });
+  t.mock.method(client, "sendTurn", async (threadId: string) => {
+    assert.equal(threadId, "existing");
+    assert.match(requests[0], /thread\/resume.*"sandbox":"read-only"/);
+    return { text: "answer", commentary: "" };
+  });
+  t.mock.method(globalThis, "fetch", async () => Response.json({ ret: 0 }));
+  const threadStore: ThreadStore = { sender: { threadId: "existing" } };
+  const context = { account, client, threadStore, contextTokens: new Map([["sender", "context"]]), allowedUsers: new Set<string>() };
+  await processMessage({ ...context, message: { ...message, item_list: [{ type: 1, text_item: { text: "/permissions read-only" } }] } });
+  assert.equal(client.isThreadLoaded("existing"), false);
+  assert.match(fs.readFileSync(PATHS.threads, "utf8"), /"sandbox": "read-only"/);
+  await processMessage({ ...context, message });
+  assert.equal(threadStore.sender.threadId, "existing");
+  assert.equal(client.isThreadLoaded("existing"), true);
+});
 
 await test("the message pipeline rejects unlisted senders before connecting or sending", async (t) => {
   const client = new CodexAppServerClient();

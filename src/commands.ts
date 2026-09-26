@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import type { CodexAppServerClient } from "./codex-app-server.js";
 import type { Model } from "./protocol.js";
 import type { ThreadRecord, ThreadStore } from "./thread-store.js";
+import { effectiveSandbox, parseSandboxMode, SANDBOX_MODES } from "./sandbox.js";
 
 interface WechatCommand { name: string; argument: string | null; original: string }
 
@@ -41,7 +42,7 @@ export function conversationSettings(client: CodexAppServerClient, record: Threa
   return {
     model: record.model ?? client.options.model ?? null,
     effort: record.effort ?? null,
-    sandbox: client.options.sandbox,
+    sandbox: effectiveSandbox(record.sandbox, client.options.sandbox),
     cwd: record.cwd || client.options.cwd,
   };
 }
@@ -84,7 +85,7 @@ interface CommandContext extends CommandRequest {
 }
 
 function handleHelp(): string {
-  return "Commands: /model [name], /models, /effort [level], /status, /config, /cwd [repo], /new, /threads, /resume <id>, /compact, /fork, /rename <name>, /review, /diff, /permissions. Terminal-only commands are unavailable here.";
+  return "Commands: /model [name], /models, /effort [level], /status, /config, /cwd [repo], /new, /threads, /resume <id>, /compact, /fork, /rename <name>, /review, /diff, /permissions [mode]. Terminal-only commands are unavailable here.";
 }
 
 function handleUnsupported({ command }: CommandContext): string {
@@ -95,8 +96,16 @@ function handleStatus({ record, settings }: CommandContext): string {
   return `model: ${settings.model || "Codex default"}\neffort: ${settings.effort || "Codex default"}\nsandbox: ${settings.sandbox}\ncwd: ${settings.cwd}\nthread: ${record.threadId || "none"}`;
 }
 
-function handlePermissions({ settings }: CommandContext): string {
-  return `sandbox: ${settings.sandbox}. Permissions are fixed by the bridge service; change its startup configuration to change this limit.`;
+function handlePermissions({ settings, argument, client, record, threadStore, conversationKey }: CommandContext): string {
+  if (!argument) return `当前沙盒：${settings.sandbox}\n服务权限上限：${client.options.sandbox}\n用法：/permissions ${SANDBOX_MODES.join("|")}`;
+  const selected = parseSandboxMode(argument);
+  if (!selected) return `用法：/permissions ${SANDBOX_MODES.join("|")}`;
+  if (effectiveSandbox(selected, client.options.sandbox) !== selected) {
+    return `服务权限上限为 ${client.options.sandbox}，当前聊天不能切换到 ${selected}。`;
+  }
+  threadStore[conversationKey] = { ...record, sandbox: selected };
+  if (record.threadId) client.invalidateLoadedThread(record.threadId);
+  return `当前聊天的沙盒已设为 ${selected}，下一次使用会话时生效。已有会话上下文保留。`;
 }
 
 async function handleModel({ command, client, threadStore, conversationKey, record, argument }: CommandContext): Promise<string> {
@@ -130,7 +139,7 @@ async function handleEffort({ client, threadStore, conversationKey, record, sett
 }
 
 function handleNew({ threadStore, conversationKey, record }: CommandContext): string {
-  threadStore[conversationKey] = { model: record.model, effort: record.effort, cwd: record.cwd, history: rememberCurrentThread(record) };
+  threadStore[conversationKey] = { model: record.model, effort: record.effort, cwd: record.cwd, sandbox: record.sandbox, history: rememberCurrentThread(record) };
   return "New conversation ready. Your next message starts a fresh Codex thread.";
 }
 

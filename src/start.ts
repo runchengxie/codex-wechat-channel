@@ -41,7 +41,7 @@ interface MessageMeta {
   senderLabel: string;
   conversationKey: string;
 }
-interface StartOptions extends ThreadSettings {
+interface StartOptions extends Omit<ThreadSettings, "sandbox"> {
   baseUrl?: string;
   sandbox?: string;
   approvalPolicy?: string;
@@ -172,7 +172,7 @@ async function ensureThread(client: CodexAppServerClient, threadStore: ThreadSto
         logError(
           `resume failed for ${conversationKey} (${existing.threadId}): ${errorMessage(error)}; creating new thread`,
         );
-        threadStore[conversationKey] = { model: existing.model, effort: existing.effort, cwd: existing.cwd, history: existing.history };
+        threadStore[conversationKey] = { model: existing.model, effort: existing.effort, cwd: existing.cwd, sandbox: existing.sandbox, history: existing.history };
       }
     }
 

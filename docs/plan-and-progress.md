@@ -66,3 +66,7 @@ bash -n scripts/watch-codex-config.sh
 - 文件和视频附件下载、解析与输入。
 - 微信语音识别。仅使用微信消息中已有的转写结果。
 - 代码库中没有 Git submodule。
+
+## 聊天权限设置
+
+`/permissions` 查看当前聊天的沙盒模式和服务权限上限。带上 `read-only`、`workspace-write` 或 `danger-full-access` 可保存新模式，下一次使用会话时应用。设置按聊天隔离，保留已有上下文，`/new` 沿用该设置。服务以更低权限重启后，实际权限受新的上限限制。

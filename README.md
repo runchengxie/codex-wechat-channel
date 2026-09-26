@@ -61,9 +61,9 @@ codex-wechat-channel start --cwd /path/to/repository --model MODEL
 | `/rename <名称>` | 重命名当前会话 |
 | `/review` | 审查当前工作目录中的未提交变更 |
 | `/diff` | 查看当前工作目录的 Git 状态和差异统计 |
-| `/permissions` | 查看桥接进程的沙盒权限 |
+| `/permissions [mode]` | 查看或修改当前聊天的沙盒权限 |
 
-`/cwd` 只能选择桥接启动目录下的 Git 工作树。`/review` 和 `/diff` 需要当前目录是 Git 工作树。聊天命令不能提高服务启动时设置的沙盒权限。其他以 `/` 开头的输入会被视为不支持的命令。若要发送普通的斜杠开头文本，在开头再加一个 `/`，例如 `//plan`。
+`/cwd` 只能选择桥接启动目录下的 Git 工作树。`/review` 和 `/diff` 需要当前目录是 Git 工作树。`/permissions read-only`、`/permissions workspace-write` 和 `/permissions danger-full-access` 可切换当前聊天的权限，上限由服务启动配置决定。设置会保存，下一次使用会话时生效，已有上下文保留，`/new` 也会保留该设置。服务以更低权限重启后，聊天权限自动受新上限约束。其他以 `/` 开头的输入会被视为不支持的命令。若要发送普通的斜杠开头文本，在开头再加一个 `/`，例如 `//plan`。
 
 ## 后台运行
 
@@ -110,7 +110,7 @@ codex-wechat-channel bridge start --cwd /path/to/repository --model MODEL
 | `CODEX_WECHAT_CWD` | Codex 工作目录 | 当前目录 |
 | `CODEX_WECHAT_MODEL` | 默认模型 | Codex 默认值 |
 | `CODEX_WECHAT_ALLOWED_USERS` | 允许使用桥接的微信发送者 ID，多个 ID 用逗号分隔 | 未设置时允许所有用户，并在启动时警告 |
-| `CODEX_WECHAT_SANDBOX` | 沙盒权限：`read-only`、`workspace-write` 或 `danger-full-access` | `danger-full-access` |
+| `CODEX_WECHAT_SANDBOX` | 默认沙盒权限及聊天权限上限：`read-only`、`workspace-write` 或 `danger-full-access` | `danger-full-access` |
 | `CODEX_WECHAT_APPROVAL_POLICY` | 审批策略 | `never` |
 | `CODEX_WECHAT_APP_SERVER_URL` | 连接已有 app-server 的 WebSocket 地址 | 自动启动内置 app-server |
 | `CODEX_WECHAT_BASE_URL` | 微信 ilink API 地址 | `https://ilinkai.weixin.qq.com` |

@@ -1,3 +1,5 @@
+import type { SandboxMode } from "./sandbox.js";
+
 /** JSON objects received from disk or another process require runtime checks. */
 export function object(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -16,6 +18,7 @@ export function errorMessage(error: unknown): string {
 }
 
 export interface ThreadSettings {
+  sandbox?: SandboxMode;
   cwd?: string;
   model?: string | null;
   effort?: string | null;
