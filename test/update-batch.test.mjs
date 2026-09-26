@@ -78,3 +78,20 @@ test("an empty batch can advance a returned cursor", async () => {
 
   assert.deepEqual(saved, ["cursor-2"]);
 });
+
+test("a delivered failure notice completes the message, but a failed notice holds the cursor", async () => {
+  const saved = [];
+  await processUpdateBatch({
+    response: { msgs: [{ id: "codex-failed" }], get_updates_buf: "cursor-2" },
+    dispatch: async () => { await Promise.resolve("failure notice sent"); },
+    saveCursor: (cursor) => saved.push(cursor),
+  });
+  assert.deepEqual(saved, ["cursor-2"]);
+
+  await assert.rejects(processUpdateBatch({
+    response: { msgs: [{ id: "notice-failed" }], get_updates_buf: "cursor-3" },
+    dispatch: async () => { throw new Error("failure notice could not be sent"); },
+    saveCursor: (cursor) => saved.push(cursor),
+  }), /1 update message task failed/);
+  assert.deepEqual(saved, ["cursor-2"]);
+});

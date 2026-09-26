@@ -141,6 +141,8 @@ export class CodexAppServerClient {
     this.nextId = 1;
     this.socket = null;
     this.child = null;
+    this.embeddedAppServerUrl = null;
+    this.initialized = false;
     this.closeReason = null;
     this.launchEnv = null;
     this.connectPromise = null;
@@ -155,17 +157,18 @@ export class CodexAppServerClient {
   }
 
   async connect() {
-    if (this.isConnected()) {
-      return;
-    }
     if (this.connectPromise) {
       return this.connectPromise;
     }
+    if (this.isConnected()) return;
 
     const connecting = this.connectInternal();
     this.connectPromise = connecting;
     try {
       await connecting;
+    } catch (error) {
+      this.invalidateConnection(`app-server initialization failed: ${error.message}`);
+      throw error;
     } finally {
       if (this.connectPromise === connecting) {
         this.connectPromise = null;
@@ -174,6 +177,7 @@ export class CodexAppServerClient {
   }
 
   async connectInternal() {
+    this.initialized = false;
     this.launchEnv = this.prepareLaunchEnv();
     const appServerUrl =
       this.options.appServerUrl || (await this.startEmbeddedAppServer());
@@ -189,9 +193,13 @@ export class CodexAppServerClient {
       },
     });
     this.socket.send(JSON.stringify({ jsonrpc: "2.0", method: "initialized", params: {} }));
+    this.initialized = true;
   }
 
   async startEmbeddedAppServer() {
+    if (this.child && this.child.exitCode === null && !this.child.killed && this.embeddedAppServerUrl) {
+      return this.embeddedAppServerUrl;
+    }
     const port = await getFreePort();
     const wsUrl = `ws://127.0.0.1:${port}`;
     const readyUrl = `http://127.0.0.1:${port}/readyz`;
@@ -203,27 +211,32 @@ export class CodexAppServerClient {
     };
 
     this.log(`starting embedded codex app-server on ${wsUrl}`);
-    this.child = spawn(this.options.codexBin, args, spawnOptions);
+    const child = spawn(this.options.codexBin, args, spawnOptions);
+    this.child = child;
+    this.embeddedAppServerUrl = wsUrl;
 
-    this.child.once("error", (error) => {
+    child.once("error", (error) => {
       this.logError(`codex app-server failed to start: ${error.message}`);
     });
 
-    this.child.stdout.on("data", (chunk) => {
+    child.stdout.on("data", (chunk) => {
       const text = String(chunk).trim();
       if (text) {
         this.log(`[app-server] ${text}`);
       }
     });
 
-    this.child.stderr.on("data", (chunk) => {
+    child.stderr.on("data", (chunk) => {
       const text = String(chunk).trim();
       if (text) {
         this.log(`[app-server] ${text}`);
       }
     });
 
-    this.child.once("exit", (code, signal) => {
+    child.once("exit", (code, signal) => {
+      if (this.child !== child) return;
+      this.child = null;
+      this.embeddedAppServerUrl = null;
       this.invalidateConnection(
         `embedded app-server exited (code=${code}, signal=${signal})`,
       );
@@ -307,6 +320,7 @@ export class CodexAppServerClient {
   invalidateConnection(reason) {
     const socket = this.socket;
     this.socket = null;
+    this.initialized = false;
     this.loadedThreads.clear();
     this.closeReason = reason;
     this.rejectAllPending(new Error(reason));
@@ -316,7 +330,7 @@ export class CodexAppServerClient {
   }
 
   isConnected() {
-    return Boolean(this.socket && this.socket.readyState === WebSocket.OPEN);
+    return Boolean(this.initialized && this.socket && this.socket.readyState === WebSocket.OPEN);
   }
 
   handleMessage(raw) {
@@ -591,6 +605,7 @@ export class CodexAppServerClient {
       this.socket.close();
     }
     this.socket = null;
+    this.initialized = false;
 
     if (this.child && !this.child.killed) {
       await killProcessTree(this.child.pid);
