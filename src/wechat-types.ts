@@ -20,13 +20,26 @@ export function accountFromJson(value: unknown): Account {
 }
 
 export interface MediaItem {
+  media?: MediaReference;
+  thumb_media?: MediaReference;
   cdn_url?: string;
   aes_key?: string;
+  aeskey?: string;
   text?: string;
   file_name?: string;
+  len?: string;
+  video_size?: number;
+  play_length?: number;
   width?: number;
   height?: number;
   duration_ms?: number;
+}
+
+export interface MediaReference {
+  encrypt_query_param?: string;
+  aes_key?: string;
+  full_url?: string;
+  encrypt_type?: number;
 }
 
 export interface MessageItem {
@@ -66,14 +79,27 @@ function number(value: unknown): number {
   return value;
 }
 
+function mediaReferenceFromJson(value: unknown): MediaReference {
+  const data = object(value);
+  const result: MediaReference = {};
+  for (const key of ["encrypt_query_param", "aes_key", "full_url"] as const) {
+    if (data[key] != null) result[key] = string(data[key]);
+  }
+  if (data.encrypt_type != null) result.encrypt_type = number(data.encrypt_type);
+  return result;
+}
+
 function mediaFromJson(value: unknown): MediaItem {
   const data = object(value);
   const result: MediaItem = {};
-  for (const key of ["cdn_url", "aes_key", "text", "file_name"] as const) {
+  for (const key of ["cdn_url", "aes_key", "aeskey", "text", "file_name", "len"] as const) {
     if (data[key] != null) result[key] = string(data[key]);
   }
-  for (const key of ["width", "height", "duration_ms"] as const) {
+  for (const key of ["width", "height", "duration_ms", "video_size", "play_length"] as const) {
     if (data[key] != null) result[key] = number(data[key]);
+  }
+  for (const key of ["media", "thumb_media"] as const) {
+    if (data[key] != null) result[key] = mediaReferenceFromJson(data[key]);
   }
   return result;
 }

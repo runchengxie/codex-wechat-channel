@@ -190,7 +190,20 @@ export async function getUpdates(account: Account, getUpdatesBuf: string) {
 }
 
 export function extractContent(message: WechatMessage): ExtractedContent | null {
-  for (const item of message.item_list ?? []) {
+  const items = message.item_list ?? [];
+  const attachmentItem = items.find((item) => item.type === MSG_ITEM_FILE || item.type === MSG_ITEM_VIDEO);
+  if (attachmentItem) {
+    const attachment = extractItem(attachmentItem);
+    if (attachment) {
+      const captions = items
+        .filter((item) => item.type === MSG_ITEM_TEXT)
+        .map((item) => item.text_item?.text?.trim())
+        .filter((text): text is string => Boolean(text));
+      if (captions.length > 0) attachment.text = `${captions.join("\n")}\n\n${attachment.text}`;
+      return attachment;
+    }
+  }
+  for (const item of items) {
     const content = extractItem(item);
     if (content) return content;
   }
@@ -238,8 +251,9 @@ function extractItem(item: MessageItem): ExtractedContent | null {
     }
     case MSG_ITEM_VIDEO: {
       const video = item.video_item ?? {};
-      const seconds = video.duration_ms
-        ? ` ${(video.duration_ms / 1000).toFixed(1)}s`
+      const durationMs = video.duration_ms ?? video.play_length;
+      const seconds = durationMs
+        ? ` ${(durationMs / 1000).toFixed(1)}s`
         : "";
       return {
         msgType: "video",
@@ -256,14 +270,80 @@ function extractItem(item: MessageItem): ExtractedContent | null {
 }
 
 function decryptAesEcb(data: Buffer, keyBase64: string) {
-  const key = Buffer.from(keyBase64, "base64");
+  const decoded = Buffer.from(keyBase64, "base64");
+  const decodedText = decoded.toString("ascii");
+  const key = decoded.length === 32 && /^[0-9a-f]{32}$/i.test(decodedText)
+    ? Buffer.from(decodedText, "hex")
+    : decoded;
+  if (key.length !== 16) throw new Error("Invalid media encryption key");
   const decipher = crypto.createDecipheriv("aes-128-ecb", key, null);
   decipher.setAutoPadding(true);
   return Buffer.concat([decipher.update(data), decipher.final()]);
 }
 
-async function downloadAndDecryptMedia(cdnUrl: string, aesKeyBase64: string) {
-  const response = await fetch(cdnUrl, {
+const DEFAULT_WECHAT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c";
+const MAX_ENCRYPTED_MEDIA_BYTES = 25 * 1024 * 1024;
+
+function trustedMediaUrl(value: string) {
+  const url = new URL(value);
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== "https:" || (host !== "cdn.weixin.qq.com" && !host.endsWith(".cdn.weixin.qq.com")) || url.port || url.username || url.password) {
+    throw new Error("Unsupported media download URL");
+  }
+  return url.toString();
+}
+
+function mediaDownloadUrl(mediaItem: MediaItem): { url: string; key: string } | null {
+  const media = mediaItem.media;
+  const key = mediaItem.aeskey
+    ? Buffer.from(mediaItem.aeskey, "hex").toString("base64")
+    : media?.aes_key ?? mediaItem.aes_key;
+  if (!key) return null;
+
+  const fullUrl = media?.full_url ?? mediaItem.cdn_url;
+  if (fullUrl) return { url: trustedMediaUrl(fullUrl), key };
+  if (!media?.encrypt_query_param) return null;
+
+  const url = new URL("download", `${DEFAULT_WECHAT_CDN_BASE_URL}/`);
+  url.searchParams.set("encrypted_query_param", media.encrypt_query_param);
+  return { url: trustedMediaUrl(url.toString()), key };
+}
+
+async function readLimitedResponse(response: Response) {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_ENCRYPTED_MEDIA_BYTES) {
+    throw new Error("Media attachment exceeds the 25 MiB download limit");
+  }
+  if (!response.body) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > MAX_ENCRYPTED_MEDIA_BYTES) throw new Error("Media attachment exceeds the 25 MiB download limit");
+    return buffer;
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_ENCRYPTED_MEDIA_BYTES) {
+        await reader.cancel();
+        throw new Error("Media attachment exceeds the 25 MiB download limit");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), size);
+}
+
+export async function downloadAndDecryptMedia(mediaItem: MediaItem) {
+  const source = mediaDownloadUrl(mediaItem);
+  if (!source) return null;
+  const response = await fetch(source.url, {
+    redirect: "error",
     signal: AbortSignal.timeout(30_000),
   });
 
@@ -271,8 +351,8 @@ async function downloadAndDecryptMedia(cdnUrl: string, aesKeyBase64: string) {
     throw new Error(`CDN download failed: ${response.status}`);
   }
 
-  const encrypted = Buffer.from(await response.arrayBuffer());
-  return decryptAesEcb(encrypted, aesKeyBase64);
+  const encrypted = await readLimitedResponse(response);
+  return decryptAesEcb(encrypted, source.key);
 }
 
 function guessImageExtension(buffer: Buffer) {
@@ -301,11 +381,8 @@ function guessImageExtension(buffer: Buffer) {
 }
 
 export async function downloadImageAttachment({ mediaItem, outputDir, fileStem }: { mediaItem: MediaItem; outputDir: string; fileStem: string }) {
-  if (!mediaItem?.cdn_url || !mediaItem?.aes_key) {
-    return null;
-  }
-
-  const buffer = await downloadAndDecryptMedia(mediaItem.cdn_url, mediaItem.aes_key);
+  const buffer = await downloadAndDecryptMedia(mediaItem);
+  if (!buffer) return null;
   const extension = guessImageExtension(buffer);
   ensureDir(outputDir);
   const filePath = path.join(outputDir, `${fileStem}${extension}`);
