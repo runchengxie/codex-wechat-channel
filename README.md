@@ -1,228 +1,151 @@
 # codex-wechat-channel
 
-把微信 ClawBot 消息桥接进 Codex，会话底层走 `codex app-server`，而不是 Claude Code 的 development channels。
+`codex-wechat-channel` 将微信 ClawBot 收到的消息转给 Codex，并把回复发回微信。每个私聊或群聊对应一个 Codex thread。程序通过微信 ilink API 收发消息，并通过 Codex app-server 管理会话。
 
-## 设计取舍
+## 功能
 
-参考 `claude-code-wechat-channel` 的整体链路，但 Codex 当前公开可用的是 `app-server` / `mcp`，没有 Claude 那套 channel 扩展加载入口。因此这个项目采用的是：
+- 支持微信扫码登录、长轮询收消息和发送文本回复。
+- 图片会下载并作为图片输入交给 Codex。
+- 语音消息使用微信提供的转写文本。没有转写文本时只会提示收到语音。
+- 文件和视频消息目前只把文件名或时长等信息交给 Codex，不会下载附件。
+- 按聊天保存 Codex thread、模型、推理强度和工作目录，重启后继续使用。
+- 支持在聊天中切换模型、管理 thread、查看 Git 工作区状态和发起代码审查。
+- 支持后台运行。Linux 上还可安装 systemd 服务，并监视 Codex 配置变化。
 
-```text
-WeChat (ClawBot)
-  -> ilink API
-  -> codex-wechat-channel
-  -> embedded Codex app-server
-  -> per-chat Codex thread
-  -> plain-text reply back to WeChat
-```
+## 运行要求
 
-这意味着：
+- Node.js 22 或更新版本
+- 已安装并登录 Codex CLI
+- 可使用微信 iOS ClawBot
 
-- 它会自己拉起一个 `codex app-server`
-- 每个私聊 / 群聊维护一个独立 Codex thread
-- 回复默认走纯文本，适合 WeChat 聊天窗口
-- 图片消息会尽量下载并作为 `localImage` 输入传给 Codex
+如果没有设置 `OPENAI_API_KEY`，内置 app-server 会尝试从 `~/.codex/auth.json` 读取密钥。使用已有 app-server 时由该服务负责鉴权。
 
-## 前置要求
+## 安装与启动
 
-- Node.js `>= 22`
-- 已安装 `codex` CLI，且已登录可用
-- 微信 iOS ClawBot 可用
-
-如果当前 shell 没有导出 `OPENAI_API_KEY`，桥接会优先复用 `codex login` 写入的 `~/.codex/auth.json`。两者都缺失时，启动会在连接 app-server 前直接报错。
-
-## 快速开始
-
-### 安装方式
-
-推荐直接运行：
+临时使用：
 
 ```bash
 npx codex-wechat-channel help
 ```
 
-如果你想长期使用：
+长期使用：
 
 ```bash
 npm install -g codex-wechat-channel
-codex-wechat-channel help
-```
-
-在本地仓库开发时，仍可继续使用 `node cli.mjs ...` 或 `npm run ...`。
-
-### 发布为 npm 包
-
-```bash
-npm login
-npm pack
-npm publish --access public
-```
-
-发布后即可直接使用：
-
-```bash
-npx codex-wechat-channel help
-```
-
-### 1. 微信扫码登录
-
-```bash
 codex-wechat-channel setup
-```
-
-凭据会保存在：
-
-```text
-~/.codex/channels/wechat/account.json
-```
-
-### 2. 启动桥接
-
-```bash
 codex-wechat-channel start
 ```
 
-如果需要指定工作目录或模型：
+`setup` 会显示微信扫码登录所需的二维码地址，登录信息保存在 `~/.codex/channels/wechat/account.json`。启动后默认在当前目录处理 Codex 请求。可指定工作目录和模型：
 
 ```bash
-codex-wechat-channel start --cwd D:\workspace\myrepo --model gpt-5.4
+codex-wechat-channel start --cwd /path/to/repository --model MODEL
 ```
 
-### 3. 探活 Codex app-server
+本地开发时可在仓库目录运行 `node cli.mjs <command>` 或对应的 `npm run` 命令。
 
-```bash
-codex-wechat-channel probe
-```
-
-预期输出：
-
-```text
-PONG
-```
-
-## 微信中的 `/` 命令
-
-微信消息不会经过 Codex CLI 的终端命令解析器。桥接支持以下文本命令，并使用 Codex app-server 或只读 Git 命令执行：
+## 微信命令
 
 | 命令 | 功能 |
 | --- | --- |
-| `/help` | 列出可用命令 |
-| `/model [name]`、`/models` | 查看可用模型，或给当前微信会话选模型；`luna`、`sol`、`terra`、`astra` 是快捷名 |
-| `/effort <level>` | 设置当前微信会话的推理强度 |
-| `/status`、`/config` | 查看模型、推理强度、工作目录、沙盒和线程 |
-| `/cwd [repo-path]` | 为当前微信会话选择桥接根目录下的 Git 工作树；切换时保留旧线程 |
-| `/new` | 为当前微信会话创建新线程，保留模型和推理强度 |
-| `/threads`、`/resume <id>` | 查看本微信会话保存的线程，并切回其中一个 |
-| `/compact` | 压缩当前线程的上下文 |
-| `/fork` | 复制当前线程并切换到副本 |
-| `/rename <name>` | 给当前线程命名 |
-| `/review` | 审查配置的 Git 工作树中的未提交变更 |
-| `/diff` | 查看配置的 Git 工作树的状态和差异统计 |
-| `/permissions` | 查看桥接服务允许的沙盒权限 |
+| `/help` | 查看可用命令 |
+| `/model [名称]`、`/models` | 查看或切换当前聊天使用的模型。`luna`、`sol`、`terra`、`astra` 是快捷名称 |
+| `/effort [级别]` | 设置当前聊天的推理强度 |
+| `/status`、`/config` | 查看模型、推理强度、沙盒权限、工作目录和 thread |
+| `/cwd [路径]` | 在启动时指定的目录内切换 Git 工作树 |
+| `/new` | 为当前聊天新建 thread，并保留聊天设置 |
+| `/threads`、`/resume <id>` | 查看或切换当前聊天保存的 thread |
+| `/compact` | 压缩当前 thread 的上下文 |
+| `/fork` | 复制当前 thread，并切换到副本 |
+| `/rename <名称>` | 重命名当前 thread |
+| `/review` | 审查当前工作目录中的未提交变更 |
+| `/diff` | 查看当前工作目录的 Git 状态和差异统计 |
+| `/permissions` | 查看桥接进程的沙盒权限 |
 
-模型与推理强度按微信会话保存，并在桥接重启后恢复。`/review` 和 `/diff` 要求 `--cwd` 指向 Git 工作树。微信命令不能提高服务启动时设定的沙盒权限。其他 Codex CLI `/` 命令会明确提示当前不可用；要把以 `/` 开头的内容作为普通提问，前面再加一个 `/`，例如 `//plan`。
+`/cwd` 只能选择桥接启动目录下的 Git 工作树。`/review` 和 `/diff` 需要当前目录是 Git 工作树。聊天命令不能提高服务启动时设置的沙盒权限。其他以 `/` 开头的输入会被视为不支持的命令。若要发送普通的斜杠开头文本，在开头再加一个 `/`，例如 `//plan`。
 
-## 运维快捷命令
-
-如果你想把桥接放到后台运行，可直接使用：
+## 后台运行
 
 ```bash
 codex-wechat-channel bridge start
 codex-wechat-channel bridge status
-codex-wechat-channel probe
 codex-wechat-channel bridge stop
-codex-wechat-channel service install --cwd /home/ubuntu
+codex-wechat-channel probe
 ```
 
-需要透传启动参数时：
+Linux 且使用 systemd 的机器可安装开机启动服务：
 
 ```bash
-codex-wechat-channel bridge start --cwd D:\workspace\myrepo --model gpt-5.4
-```
-
-如果你是在本地仓库内开发，也可以继续用：
-
-```bash
-npm run bridge:start
-npm run bridge:status
-npm run bridge:probe
-npm run bridge:stop
-```
-
-## Linux systemd 自启与自动重载
-
-如果你在 Linux 服务器上跑 bridge，并且希望：
-
-- 开机自启
-- bridge 异常退出自动拉起
-- 修改 `~/.codex/config.toml`、`~/.codex/AGENTS.md`、`~/.codex/skills/`、`~/.codex/prompts/` 后自动重启 bridge
-
-可以直接执行：
-
-```bash
-sudo codex-wechat-channel service install --cwd /home/ubuntu
-```
-
-如果你是通过 `sudo` 执行，安装命令会优先使用 `SUDO_USER` 对应的用户与 home 目录来写入 `systemd` 配置和 `PIDFile`。如果你的部署用户不是当前 `sudo` 来源，也可以显式覆盖：
-
-```bash
-sudo codex-wechat-channel service install --cwd /srv/repo --user ubuntu --home /home/ubuntu
-```
-
-重复执行 `service install` 会覆盖已有 unit 文件，并强制重启正在运行的 bridge / watcher，让新配置立即生效。
-
-安装后会创建：
-
-- `codex-wechat-channel.service`
-- `codex-wechat-channel-watch.service`
-
-查看状态：
-
-```bash
+sudo codex-wechat-channel service install --cwd /path/to/repository
 codex-wechat-channel service status
-```
-
-卸载：
-
-```bash
 sudo codex-wechat-channel service uninstall
 ```
 
-## 常用环境变量
+安装命令会创建 bridge 和配置监视服务。配置监视依赖 `inotify-tools`，安装器会在 Debian 或 Ubuntu 上尝试通过 `apt-get` 安装。监视器会在 `~/.codex/config.toml`、`AGENTS.md`、`skills/` 或 `prompts/` 内容变化后重启 bridge。需要自定义用户或 home 目录时，可传入 `--user` 和 `--home`。
 
-```bash
-CODEX_BIN=codex
-CODEX_WECHAT_CWD=D:\workspace\repo
-CODEX_WECHAT_MODEL=gpt-5.4
-CODEX_WECHAT_SANDBOX=danger-full-access
-CODEX_WECHAT_APPROVAL_POLICY=never
-CODEX_WECHAT_APP_SERVER_URL=ws://127.0.0.1:4501
-CODEX_WECHAT_BASE_URL=https://ilinkai.weixin.qq.com
-CODEX_WECHAT_DEVELOPER_INSTRUCTIONS=Always answer as a senior engineer.
-OPENAI_API_KEY=sk-...
+systemd 服务不会继承安装命令所在 shell 的环境变量。要为后台服务设置微信发送者白名单，可运行 `sudo systemctl edit codex-wechat-channel.service`，添加以下内容，然后重新加载并重启服务：
+
+```ini
+[Service]
+Environment=CODEX_WECHAT_ALLOWED_USERS=wxid1,wxid2
 ```
 
-## 持久化状态
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart codex-wechat-channel.service
+```
 
-项目会在 `~/.codex/channels/wechat/` 下维护：
+后台命令支持透传启动参数：
 
-- `account.json`：微信 bot token
-- `bridge.pid`：后台桥接进程 PID
-- `bridge.stdout.log`：后台桥接标准输出
-- `bridge.stderr.log`：后台桥接标准错误
-- `context_tokens.json`：WeChat reply context
-- `threads.json`：conversation -> Codex thread 映射
-- `sync_buf.txt`：微信 long polling 游标
-- `media/`：下载下来的图片附件
+```bash
+codex-wechat-channel bridge start --cwd /path/to/repository --model MODEL
+```
 
-## 发布说明
+## 配置
 
-- [2026-03-25 默认全权限与远端部署](./docs/releases/2026-03-25-default-danger-full-access.md)
-- [2026-03-25 Linux systemd 自启与配置自动重载](./docs/releases/2026-03-25-systemd-service-and-autoreload.md)
-- [2026-03-25 bin 包发布、鉴权回退与后台控制脚本](./docs/releases/2026-03-25-auth-fallback-and-bridgectl.md)
+| 环境变量 | 用途 | 默认值 |
+| --- | --- | --- |
+| `CODEX_BIN` | Codex CLI 可执行文件 | `codex` |
+| `CODEX_WECHAT_CWD` | Codex 工作目录 | 当前目录 |
+| `CODEX_WECHAT_MODEL` | 默认模型 | Codex 默认值 |
+| `CODEX_WECHAT_ALLOWED_USERS` | 允许使用桥接的微信发送者 ID，多个 ID 用逗号分隔 | 未设置时允许所有用户，并在启动时警告 |
+| `CODEX_WECHAT_SANDBOX` | 沙盒权限：`read-only`、`workspace-write` 或 `danger-full-access` | `danger-full-access` |
+| `CODEX_WECHAT_APPROVAL_POLICY` | 审批策略 | `never` |
+| `CODEX_WECHAT_APP_SERVER_URL` | 连接已有 app-server 的 WebSocket 地址 | 自动启动内置 app-server |
+| `CODEX_WECHAT_BASE_URL` | 微信 ilink API 地址 | `https://ilinkai.weixin.qq.com` |
+| `CODEX_WECHAT_DEVELOPER_INSTRUCTIONS` | 追加到 thread 的指令 | 无 |
+| `OPENAI_API_KEY` | app-server 使用的 API 密钥 | 尝试读取 Codex 登录文件 |
 
-## 注意事项
+默认权限允许 Codex 在沙盒策略范围内执行操作。若需限制访问，可设置 `CODEX_WECHAT_SANDBOX=workspace-write` 或 `read-only`。`approvalPolicy=never` 不会等待人工审批，部署前应按自己的使用场景选择权限。
 
-- 默认 `approvalPolicy=never`，因为这是一个无人值守桥。如果你改成需要审批，桥接会卡住。
-- 默认 `sandbox=danger-full-access`，方便远端无人值守运行。若你需要收紧权限，可显式设置 `CODEX_WECHAT_SANDBOX=workspace-write` 或 `read-only`。
-- 若未显式设置 `OPENAI_API_KEY`，embedded app-server 会尝试读取 `~/.codex/auth.json` 中由 `codex login` 保存的 key。
-- WeChat 端仍是纯文本最佳，尽量不要让 Codex 输出 Markdown 表格或长代码块。
+未设置 `CODEX_WECHAT_ALLOWED_USERS` 时，桥接会接受所有用户消息并在启动时警告。设置后，只有列表中的发送者可以使用桥接，私聊和群聊都按发送者 ID 判断。建议配置可信用户 ID，避免其他人触发具有上述沙盒权限的 Codex 操作。被拒绝的消息不会触发 Codex。
+
+## 本地开发与检查
+
+项目使用 Node.js 内置测试运行器，目前不依赖第三方 npm 包。
+
+```bash
+npm run check
+npm test
+bash -n scripts/watch-codex-config.sh
+```
+
+公开仓库的 pull request 和 `main` 分支推送会在 Node.js 22 上自动运行这些检查。测试使用内置 `node:test`。Node 的覆盖率报告只统计测试实际加载的模块，目前还没有全项目覆盖率门槛。
+
+## 本地数据
+
+运行数据保存在 `~/.codex/channels/wechat/`：
+
+- `account.json`：微信登录信息
+- `bridge.pid`、`bridge.stdout.log`、`bridge.stderr.log`：后台进程状态和日志
+- `context_tokens.json`：微信回复上下文
+- `threads.json`：聊天与 Codex thread 的对应关系
+- `sync_buf.txt`：微信长轮询游标
+- `media/`：下载的图片
+
+## 文档
+
+- [方案与功能现状](docs/plan-and-progress.md)
+- [默认权限与远端部署](docs/releases/2026-03-25-default-danger-full-access.md)
+- [systemd 服务与配置监视](docs/releases/2026-03-25-systemd-service-and-autoreload.md)
+- [npm 包、鉴权回退与后台控制](docs/releases/2026-03-25-auth-fallback-and-bridgectl.md)

@@ -14,8 +14,10 @@ import {
   shortId,
 } from "./constants.mjs";
 import { CodexAppServerClient } from "./codex-app-server.mjs";
+import { isSenderAllowed, parseAllowedUsers } from "./access-control.mjs";
 import { conversationSettings, parseWechatCommand, runWechatCommand } from "./commands.mjs";
 import { runSetup } from "./setup.mjs";
+import { processUpdateBatch } from "./update-batch.mjs";
 import {
   downloadImageAttachment,
   extractContent,
@@ -207,8 +209,14 @@ async function processMessage({
   contextTokens,
   threadStore,
   message,
+  allowedUsers,
 }) {
   if (!isInboundUserMessage(message)) {
+    return;
+  }
+
+  if (!isSenderAllowed(message.from_user_id, allowedUsers)) {
+    log(`ignored message from unlisted sender ${message.from_user_id || "unknown"}`);
     return;
   }
 
@@ -253,6 +261,10 @@ async function processMessage({
 
   showTypingIndicator(account, replyTarget, contextToken).catch(() => undefined);
   try {
+    if (!client.isConnected()) {
+      await client.connect();
+    }
+
     const command = extracted.msgType === "text" ? parseWechatCommand(extracted.text) : null;
     if (command) {
       const record = threadStore[conversationKey];
@@ -299,6 +311,11 @@ async function processMessage({
 export async function runStart(options = {}) {
   ensureDir(PATHS.dataDir);
   ensureDir(PATHS.mediaDir);
+
+  const allowedUsers = parseAllowedUsers(process.env.CODEX_WECHAT_ALLOWED_USERS);
+  if (allowedUsers.size === 0) {
+    log("WARNING: CODEX_WECHAT_ALLOWED_USERS is empty; messages from all users are allowed.");
+  }
 
   let account = loadJson(PATHS.account, null);
   if (!account) {
@@ -363,48 +380,36 @@ export async function runStart(options = {}) {
         (response.errcode !== undefined && response.errcode !== 0);
 
       if (isError) {
-        consecutiveFailures += 1;
-        logError(
+        throw new Error(
           `getupdates failed ret=${response.ret} errcode=${response.errcode} errmsg=${response.errmsg || ""}`,
         );
-        await sleep(
-          consecutiveFailures >= MAX_CONSECUTIVE_FAILURES
-            ? BACKOFF_DELAY_MS
-            : RETRY_DELAY_MS,
-        );
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          consecutiveFailures = 0;
-        }
-        continue;
       }
 
-      consecutiveFailures = 0;
+      await processUpdateBatch({
+        response,
+        dispatch: (message) => {
+          const conversationKey = getConversationKey(message);
+          if (!conversationKey) {
+            return;
+          }
 
-      if (response.get_updates_buf) {
-        getUpdatesBuf = response.get_updates_buf;
-        saveText(PATHS.syncBuf, getUpdatesBuf);
-      }
-
-      for (const message of response.msgs || []) {
-        const conversationKey = getConversationKey(message);
-        if (!conversationKey) {
-          continue;
-        }
-
-        queue
-          .run(conversationKey, async () => {
-            await processMessage({
+          return queue.run(conversationKey, () =>
+            processMessage({
               account,
               client,
               contextTokens,
               threadStore,
               message,
-            });
-          })
-          .catch((error) => {
-            logError(`message pipeline failed: ${error.message}`);
-          });
-      }
+              allowedUsers,
+            }),
+          );
+        },
+        saveCursor(cursor) {
+          getUpdatesBuf = cursor;
+          saveText(PATHS.syncBuf, cursor);
+        },
+      });
+      consecutiveFailures = 0;
     } catch (error) {
       consecutiveFailures += 1;
       logError(`poll loop error: ${error.message}`);

@@ -45,3 +45,165 @@ test("a failed turn completed before its RPC response still fails", async () => 
   };
   await assert.rejects(client.sendTurn("thread-1", []), /model unavailable/);
 });
+
+test("a turn that never completes times out and releases its waiter", async () => {
+  const client = new CodexAppServerClient({ turnTimeoutMs: 10 });
+  client.request = async () => ({ turn: { id: "turn-timeout" } });
+
+  const result = await Promise.race([
+    client.sendTurn("thread-1", []).then(
+      () => "resolved",
+      (error) => error,
+    ),
+    new Promise((resolve) => setTimeout(() => resolve("still-pending"), 50)),
+  ]);
+
+  assert.ok(result instanceof Error, "the turn should reject before the test deadline");
+  assert.match(result.message, /timed out/);
+  assert.equal(client.turnWaiters.has("turn-timeout"), false);
+});
+
+test("socket close clears loaded threads and concurrent reconnects share one connection", async () => {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, "WebSocket");
+  const sockets = [];
+
+  class FakeWebSocket extends EventTarget {
+    static OPEN = 1;
+
+    readyState = 0;
+
+    constructor(url) {
+      super();
+      this.url = url;
+      sockets.push(this);
+      queueMicrotask(() => {
+        this.readyState = FakeWebSocket.OPEN;
+        this.dispatchEvent(new Event("open"));
+      });
+    }
+
+    send(raw) {
+      const request = JSON.parse(raw);
+      if (request.method !== "initialize") return;
+      queueMicrotask(() => {
+        this.dispatchEvent(
+          new MessageEvent("message", {
+            data: JSON.stringify({ jsonrpc: "2.0", id: request.id, result: {} }),
+          }),
+        );
+      });
+    }
+
+    close() {
+      this.readyState = 3;
+      const event = new Event("close");
+      Object.assign(event, { code: 1000, reason: "closed by test" });
+      this.dispatchEvent(event);
+    }
+  }
+
+  Object.defineProperty(globalThis, "WebSocket", {
+    configurable: true,
+    writable: true,
+    value: FakeWebSocket,
+  });
+
+  try {
+    const client = new CodexAppServerClient({ appServerUrl: "ws://127.0.0.1:4501" });
+    await Promise.all([client.connect(), client.connect()]);
+    assert.equal(sockets.length, 1);
+    assert.equal(client.isConnected(), true);
+
+    client.loadedThreads.add("thread-1");
+    sockets[0].close();
+    assert.equal(client.isConnected(), false);
+    assert.equal(client.loadedThreads.size, 0);
+
+    await Promise.all([client.connect(), client.connect()]);
+    assert.equal(sockets.length, 2);
+    assert.equal(client.isConnected(), true);
+    await client.close();
+  } finally {
+    if (originalDescriptor) {
+      Object.defineProperty(globalThis, "WebSocket", originalDescriptor);
+    } else {
+      delete globalThis.WebSocket;
+    }
+  }
+});
+
+test("connect waits for initialization and retries after initialization fails", async () => {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, "WebSocket");
+  const sockets = [];
+  let releaseInitialize;
+  let failFirstInitialize = true;
+
+  class FakeWebSocket extends EventTarget {
+    static OPEN = 1;
+    readyState = 0;
+
+    constructor() {
+      super();
+      sockets.push(this);
+      queueMicrotask(() => {
+        this.readyState = FakeWebSocket.OPEN;
+        this.dispatchEvent(new Event("open"));
+      });
+    }
+
+    send(raw) {
+      const request = JSON.parse(raw);
+      if (request.method !== "initialize") return;
+      if (failFirstInitialize) {
+        releaseInitialize = () => this.dispatchEvent(new MessageEvent("message", {
+          data: JSON.stringify({ jsonrpc: "2.0", id: request.id, error: { message: "init failed" } }),
+        }));
+        failFirstInitialize = false;
+        return;
+      }
+      queueMicrotask(() => this.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({ jsonrpc: "2.0", id: request.id, result: {} }),
+      })));
+    }
+
+    close() {
+      this.readyState = 3;
+      const event = new Event("close");
+      Object.assign(event, { code: 1000, reason: "closed by test" });
+      this.dispatchEvent(event);
+    }
+  }
+
+  Object.defineProperty(globalThis, "WebSocket", { configurable: true, writable: true, value: FakeWebSocket });
+  try {
+    const client = new CodexAppServerClient({ appServerUrl: "ws://127.0.0.1:4501" });
+    const first = client.connect();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(client.isConnected(), false);
+    let secondSettled = false;
+    const second = client.connect().finally(() => { secondSettled = true; });
+    await Promise.resolve();
+    assert.equal(secondSettled, false);
+    releaseInitialize();
+    await assert.rejects(first, /init failed/);
+    await assert.rejects(second, /init failed/);
+    assert.equal(client.isConnected(), false);
+
+    await client.connect();
+    assert.equal(sockets.length, 2);
+    assert.equal(client.isConnected(), true);
+    await client.close();
+  } finally {
+    if (originalDescriptor) Object.defineProperty(globalThis, "WebSocket", originalDescriptor);
+    else delete globalThis.WebSocket;
+  }
+});
+
+test("an embedded app-server is reused while its child process is alive", async () => {
+  const client = new CodexAppServerClient();
+  client.child = { exitCode: null, killed: false };
+  client.embeddedAppServerUrl = "ws://127.0.0.1:4502";
+
+  assert.equal(await client.startEmbeddedAppServer(), client.embeddedAppServerUrl);
+  assert.equal(client.child.exitCode, null);
+});
