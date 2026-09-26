@@ -90,10 +90,10 @@
 ## 最终交付
 
 - [x] 完成干净安装、类型检查、lint、构建、全部测试及覆盖率、代码报告、依赖审计、Bash 语法和发布包验证。
-- [ ] 对照 `fork/main` 审查整个分支，处理重要问题并确认工作树干净。
-- [ ] 推送到用户 fork，创建目标为 `main` 的 PR。
-- [ ] 必需检查和审查通过后合并，记录 PR 与合并 SHA。
-- [ ] 确认没有唯一未保存内容，再删除本任务的分支和 worktree。共享主检出干净时以 fast-forward 同步。
+- [x] 对照 `fork/main` 审查整个分支，处理重要问题并确认工作树干净。
+- [x] 推送到用户 fork，创建目标为 `main` 的 [PR #3](https://github.com/runchengxie/codex-wechat-channel/pull/3)。
+- [x] 必需检查和审查通过后合并，合并提交为 `2afeef17fcdce511d7a1ec9af47ee65c4185d141`。
+- [x] 确认没有唯一未保存内容，再删除本任务的分支和 worktree。共享主检出已 fast-forward 同步。
 
 ## 追加需求：按聊天切换沙盒权限
 
