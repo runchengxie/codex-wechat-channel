@@ -44,4 +44,4 @@ Environment=CODEX_WECHAT_ALLOWED_USERS=wxid1,wxid2
 | `CODEX_WECHAT_DEVELOPER_INSTRUCTIONS` | 追加到会话的指令 | 无 |
 | `OPENAI_API_KEY` | 内置 app-server 使用的 API 密钥 | 尝试读取 Codex 登录文件 |
 
-没有设置 `OPENAI_API_KEY` 时，内置 app-server 会尝试从 `~/.codex/auth.json` 读取密钥。连接已有 app-server 时，由该服务负责鉴权。
+没有设置 `OPENAI_API_KEY` 环境变量时，内置 app-server 只会从 `~/.codex/auth.json` 顶层的 `OPENAI_API_KEY` 字符串字段读取密钥。该字段不存在时，启动会报鉴权错误。连接已有 app-server 时，由该服务负责鉴权。

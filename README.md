@@ -2,11 +2,13 @@
 
 用微信 ClawBot 给 Codex 发消息，再从微信收到回复。私聊和群聊各自保留会话，重启后可以继续使用。
 
-目前支持文字、图片和微信已有的语音转写。文件和视频只会把文件名、时长等消息信息交给 Codex，暂不下载附件。
+目前支持文字、图片和微信已有的语音转写。语音没有转写时，Codex 只会收到一条语音消息提示。文件和视频只会把文件名、时长等消息信息交给 Codex，暂不下载附件。
 
 ## 快速开始
 
-先准备 Node.js 22 或更新版本、已安装并登录的 Codex CLI，以及可使用微信 iOS ClawBot 的账号。
+先准备 Node.js 22 或更新版本、已安装的 Codex CLI、可用的 `OPENAI_API_KEY`，以及可使用微信 iOS ClawBot 的账号。内置 app-server 也能从 `~/.codex/auth.json` 顶层的 `OPENAI_API_KEY` 字段读取密钥，详见[配置与权限](docs/configuration.md)。
+
+启动前请留意：默认没有微信发送者白名单，沙盒模式是 `danger-full-access`，审批策略是 `never`。请先按使用场景设置[白名单和沙盒权限](docs/configuration.md)。
 
 ```bash
 git clone https://github.com/runchengxie/codex-wechat-channel.git
@@ -30,10 +32,6 @@ node dist/cli.js start
 - `/status`：查看当前模型、工作目录和会话。
 
 聊天权限不会超过桥接服务启动时设置的上限。完整命令说明见[使用指南](docs/usage.md)。
-
-## 开始使用前的配置
-
-未设置微信发送者白名单时，能联系这个 ClawBot 的用户都可以触发 Codex，程序会在启动时提醒。默认沙盒模式为 `danger-full-access`。准备在群聊中使用，或希望限制代码访问范围时，请先阅读[配置与权限](docs/configuration.md)。
 
 ## 更多说明
 

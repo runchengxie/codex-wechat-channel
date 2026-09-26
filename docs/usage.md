@@ -2,6 +2,8 @@
 
 ## 登录与启动
 
+启动前先检查[微信发送者白名单和沙盒权限](configuration.md)。未配置白名单时所有发送者都能使用桥接，默认沙盒模式为 `danger-full-access`。
+
 在仓库根目录安装依赖并构建后，运行：
 
 ```bash
@@ -11,7 +13,7 @@ node dist/cli.js start --cwd /path/to/repository
 
 `setup` 会显示扫码登录地址，登录信息保存在 `~/.codex/channels/wechat/account.json`。再次登录可使用 `node dist/cli.js setup --force`。未指定 `--cwd` 时，Codex 使用启动命令所在目录。
 
-可以使用 `--model MODEL` 选择默认模型，也可以通过 `--app-server-url WS_URL` 连接已有的 Codex app-server。需要内置 app-server 时，请先登录 Codex CLI，或配置 `OPENAI_API_KEY`。其他选项见[配置与权限](configuration.md)。
+可以使用 `--model MODEL` 选择默认模型，也可以通过 `--app-server-url WS_URL` 连接已有的 Codex app-server。内置 app-server 需要环境变量 `OPENAI_API_KEY`，或 `~/.codex/auth.json` 顶层的 `OPENAI_API_KEY` 字段。其他形式的 Codex 登录记录不能满足当前桥接程序的读取要求。其他选项见[配置与权限](configuration.md)。
 
 ## 微信聊天命令
 
