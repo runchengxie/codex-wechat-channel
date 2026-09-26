@@ -2,6 +2,8 @@
 
 本文保存此前可靠性改动的原始实施范围。路径和命令以当时的 JavaScript 版本为准，当前方式见 `docs/plan-and-progress.md`。此处不追补历史执行勾选状态。
 
+白名单功能后来曾实现，现已移除，因为当前微信 iOS ClawBot 接入方式只支持私聊。此计划只保留历史记录。
+
 当时要求按 `superpowers:executing-plans` 逐项执行，设计依据为 `docs/superpowers/specs/2026-09-26-bridge-reliability-design.md`。
 
 ## 目标与约束

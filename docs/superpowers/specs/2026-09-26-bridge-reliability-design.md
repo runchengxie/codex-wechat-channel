@@ -2,9 +2,11 @@
 
 本文记录此前可靠性改动的设计与实施计划。文件路径和检查方式以当时的 JavaScript 版本为准，当前构建与验收方式见 `docs/plan-and-progress.md`。
 
+白名单部分是历史方案，后来曾实现，现已移除。当前接入的微信 iOS ClawBot 只支持私聊，现行功能以 `docs/plan-and-progress.md` 为准。
+
 ## 背景与目标
 
-`codex-wechat-channel` 将微信消息送入 Codex，并为每个聊天保存独立 thread。当前实现没有微信发送者白名单，消息轮询游标会在消息处理前落盘，普通 turn 没有完成超时，app-server 断线后也不会恢复连接。这些行为可能让未授权用户触发 Codex 操作、让已拉取消息在进程退出时丢失，或让同一聊天的队列一直卡住。
+在撰写本设计时，`codex-wechat-channel` 将微信消息送入 Codex，并为每个聊天保存独立 thread。当时实现没有微信发送者白名单，消息轮询游标会在消息处理前落盘，普通 turn 没有完成超时，app-server 断线后也不会恢复连接。
 
 本次改动在保留 JavaScript 和现有部署方式的前提下，补上可选的发送者白名单、批次游标提交、turn 超时、app-server 按需重连，以及覆盖这些行为的自动化测试和 CI 检查。
 

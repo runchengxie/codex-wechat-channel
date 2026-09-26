@@ -2,7 +2,7 @@
 
 ## 登录与启动
 
-启动前先检查[微信发送者白名单和沙盒权限](configuration.md)。未配置白名单时所有发送者都能使用桥接，默认沙盒模式为 `danger-full-access`。
+启动前先检查[沙盒权限](configuration.md)。默认模式为 `danger-full-access`，审批策略为 `never`。
 
 在仓库根目录安装依赖并构建后，运行：
 
