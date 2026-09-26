@@ -101,11 +101,11 @@
 - `npm audit` checks the locked dependency tree.
 - The report explicitly labels dynamic calls and data lineage that static syntax analysis cannot prove.
 
-- [ ] Test the report against small source fixtures with known LOC, decisions, imports, call edges, and cycles.
-- [ ] Implement the AST-based report using the TypeScript Compiler API.
-- [ ] Generate and review the current report. Keep data lineage and npm artifact lineage as documented flows, not guessed call-graph edges.
-- [ ] Record the exact commands, environment, metric definitions, and known limitations in `docs/maintenance-audit.md`.
-- [ ] Commit as `docs: add reproducible codebase audit`.
+- [x] Test the report against small source fixtures with known LOC, decisions, imports, call edges, and cycles.
+- [x] Implement the AST-based report using the TypeScript Compiler API.
+- [x] Generate and review the current report. Keep data lineage and npm artifact lineage as documented flows, not guessed call-graph edges.
+- [x] Record the exact commands, environment, metric definitions, and known limitations in `docs/maintenance-audit.md`.
+- [x] Commit as `docs: add reproducible codebase audit`.
 
 ### Task 5: Lint rules and code-smell cleanup
 

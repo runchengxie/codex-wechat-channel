@@ -21,7 +21,8 @@
     "cli.ts",
     "src/**/*.ts",
     "scripts/**/*.ts",
-    "test/**/*.ts"
+    "test/**/*.ts",
+    "tools/**/*.ts"
   ],
   "exclude": [
     "dist",

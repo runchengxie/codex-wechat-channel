@@ -29,7 +29,8 @@
     "bridge:probe": "npm run build && node dist/cli.js probe",
     "service:install": "npm run build && node dist/cli.js service install",
     "service:status": "npm run build && node dist/cli.js service status",
-    "service:uninstall": "npm run build && node dist/cli.js service uninstall"
+    "service:uninstall": "npm run build && node dist/cli.js service uninstall",
+    "audit:code": "npm run build && node dist/tools/maintenance-report.js"
   },
   "engines": {
     "node": ">=22"
