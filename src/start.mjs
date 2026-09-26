@@ -17,6 +17,7 @@ import { CodexAppServerClient } from "./codex-app-server.mjs";
 import { isSenderAllowed, parseAllowedUsers } from "./access-control.mjs";
 import { conversationSettings, parseWechatCommand, runWechatCommand } from "./commands.mjs";
 import { runSetup } from "./setup.mjs";
+import { processUpdateBatch } from "./update-batch.mjs";
 import {
   downloadImageAttachment,
   extractContent,
@@ -375,49 +376,36 @@ export async function runStart(options = {}) {
         (response.errcode !== undefined && response.errcode !== 0);
 
       if (isError) {
-        consecutiveFailures += 1;
-        logError(
+        throw new Error(
           `getupdates failed ret=${response.ret} errcode=${response.errcode} errmsg=${response.errmsg || ""}`,
         );
-        await sleep(
-          consecutiveFailures >= MAX_CONSECUTIVE_FAILURES
-            ? BACKOFF_DELAY_MS
-            : RETRY_DELAY_MS,
-        );
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          consecutiveFailures = 0;
-        }
-        continue;
       }
 
-      consecutiveFailures = 0;
+      await processUpdateBatch({
+        response,
+        dispatch: (message) => {
+          const conversationKey = getConversationKey(message);
+          if (!conversationKey) {
+            return;
+          }
 
-      if (response.get_updates_buf) {
-        getUpdatesBuf = response.get_updates_buf;
-        saveText(PATHS.syncBuf, getUpdatesBuf);
-      }
-
-      for (const message of response.msgs || []) {
-        const conversationKey = getConversationKey(message);
-        if (!conversationKey) {
-          continue;
-        }
-
-        queue
-          .run(conversationKey, async () => {
-            await processMessage({
+          return queue.run(conversationKey, () =>
+            processMessage({
               account,
               client,
               contextTokens,
               threadStore,
               message,
               allowedUsers,
-            });
-          })
-          .catch((error) => {
-            logError(`message pipeline failed: ${error.message}`);
-          });
-      }
+            }),
+          );
+        },
+        saveCursor(cursor) {
+          getUpdatesBuf = cursor;
+          saveText(PATHS.syncBuf, cursor);
+        },
+      });
+      consecutiveFailures = 0;
     } catch (error) {
       consecutiveFailures += 1;
       logError(`poll loop error: ${error.message}`);
