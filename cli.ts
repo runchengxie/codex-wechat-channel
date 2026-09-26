@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
-import { runBridgeCtl } from "./scripts/bridgectl.mjs";
-import { runProbe } from "./scripts/probe-app-server.mjs";
-import { runServiceCtl } from "./scripts/servicectl.mjs";
-import { runSetup } from "./src/setup.mjs";
-import { runStart } from "./src/start.mjs";
+import { runBridgeCtl } from "./scripts/bridgectl.js";
+import { runProbe } from "./scripts/probe-app-server.js";
+import { runServiceCtl } from "./scripts/servicectl.js";
+import { runSetup } from "./src/setup.js";
+import { runStart } from "./src/start.js";
 
-function parseArgs(argv) {
-  const args = { _: [] };
+type ParsedArgs = { _: string[]; [key: string]: string | boolean | string[] };
+
+function parseArgs(argv: string[]): ParsedArgs {
+  const args: ParsedArgs = { _: [] };
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -33,6 +35,10 @@ function parseArgs(argv) {
   }
 
   return args;
+}
+
+function stringArg(value: ParsedArgs[string] | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }
 
 function printHelp() {
@@ -67,18 +73,18 @@ const command = args._[0] ?? "help";
 switch (command) {
   case "setup":
     await runSetup({
-      baseUrl: args["base-url"],
+      baseUrl: stringArg(args["base-url"]),
       force: Boolean(args.force),
     });
     break;
   case "start":
     await runStart({
-      cwd: args.cwd,
-      model: args.model,
-      appServerUrl: args["app-server-url"],
-      baseUrl: args["base-url"],
-      sandbox: args.sandbox,
-      approvalPolicy: args["approval-policy"],
+      cwd: stringArg(args.cwd),
+      model: stringArg(args.model),
+      appServerUrl: stringArg(args["app-server-url"]),
+      baseUrl: stringArg(args["base-url"]),
+      sandbox: stringArg(args.sandbox),
+      approvalPolicy: stringArg(args["approval-policy"]),
     });
     break;
   case "probe":

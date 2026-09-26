@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { ChildProcess } from "node:child_process";
 
-import { CodexAppServerClient } from "../src/codex-app-server.mjs";
+import { CodexAppServerClient } from "../src/codex-app-server.js";
 
-test("compaction waits for completion notification", async () => {
+await test("unknown app-server notifications can omit params", () => {
+  const client = new CodexAppServerClient();
+  assert.doesNotThrow(() => client.handleNotification("future/notification", undefined));
+});
+
+await test("compaction waits for completion notification", async () => {
   const client = new CodexAppServerClient();
   client.request = async (method) => {
     assert.equal(method, "thread/compact/start");
@@ -22,7 +28,7 @@ test("compaction waits for completion notification", async () => {
   assert.equal(finished, true);
 });
 
-test("review collects its final message and ignores unrelated turn starts", async () => {
+await test("review collects its final message and ignores unrelated turn starts", async () => {
   const client = new CodexAppServerClient();
   client.request = async (method) => {
     assert.equal(method, "review/start");
@@ -37,7 +43,7 @@ test("review collects its final message and ignores unrelated turn starts", asyn
   assert.equal((await reviewing).text, "Review done");
 });
 
-test("a failed turn completed before its RPC response still fails", async () => {
+await test("a failed turn completed before its RPC response still fails", async () => {
   const client = new CodexAppServerClient();
   client.request = async () => {
     client.handleNotification("turn/completed", { threadId: "thread-1", turn: { id: "turn-1", status: "failed", error: { message: "model unavailable" } } });
@@ -46,7 +52,7 @@ test("a failed turn completed before its RPC response still fails", async () => 
   await assert.rejects(client.sendTurn("thread-1", []), /model unavailable/);
 });
 
-test("a turn that never completes times out and releases its waiter", async () => {
+await test("a turn that never completes times out and releases its waiter", async () => {
   const client = new CodexAppServerClient({ turnTimeoutMs: 10 });
   client.request = async () => ({ turn: { id: "turn-timeout" } });
 
@@ -63,16 +69,18 @@ test("a turn that never completes times out and releases its waiter", async () =
   assert.equal(client.turnWaiters.has("turn-timeout"), false);
 });
 
-test("socket close clears loaded threads and concurrent reconnects share one connection", async () => {
+await test("socket close clears loaded threads and concurrent reconnects share one connection", async () => {
   const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, "WebSocket");
-  const sockets = [];
+  const sockets: FakeWebSocket[] = [];
 
   class FakeWebSocket extends EventTarget {
     static OPEN = 1;
 
     readyState = 0;
 
-    constructor(url) {
+    url: string;
+
+    constructor(url: string) {
       super();
       this.url = url;
       sockets.push(this);
@@ -82,7 +90,7 @@ test("socket close clears loaded threads and concurrent reconnects share one con
       });
     }
 
-    send(raw) {
+    send(raw: string) {
       const request = JSON.parse(raw);
       if (request.method !== "initialize") return;
       queueMicrotask(() => {
@@ -127,15 +135,15 @@ test("socket close clears loaded threads and concurrent reconnects share one con
     if (originalDescriptor) {
       Object.defineProperty(globalThis, "WebSocket", originalDescriptor);
     } else {
-      delete globalThis.WebSocket;
+      Reflect.deleteProperty(globalThis, "WebSocket");
     }
   }
 });
 
-test("connect waits for initialization and retries after initialization fails", async () => {
+await test("connect waits for initialization and retries after initialization fails", async () => {
   const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, "WebSocket");
-  const sockets = [];
-  let releaseInitialize;
+  const sockets: FakeWebSocket[] = [];
+  let releaseInitialize: () => void = () => assert.fail("initialize was not requested");
   let failFirstInitialize = true;
 
   class FakeWebSocket extends EventTarget {
@@ -151,7 +159,7 @@ test("connect waits for initialization and retries after initialization fails", 
       });
     }
 
-    send(raw) {
+    send(raw: string) {
       const request = JSON.parse(raw);
       if (request.method !== "initialize") return;
       if (failFirstInitialize) {
@@ -195,13 +203,13 @@ test("connect waits for initialization and retries after initialization fails", 
     await client.close();
   } finally {
     if (originalDescriptor) Object.defineProperty(globalThis, "WebSocket", originalDescriptor);
-    else delete globalThis.WebSocket;
+    else Reflect.deleteProperty(globalThis, "WebSocket");
   }
 });
 
-test("an embedded app-server is reused while its child process is alive", async () => {
+await test("an embedded app-server is reused while its child process is alive", async () => {
   const client = new CodexAppServerClient();
-  client.child = { exitCode: null, killed: false };
+  client.child = new ChildProcess();
   client.embeddedAppServerUrl = "ws://127.0.0.1:4502";
 
   assert.equal(await client.startEmbeddedAppServer(), client.embeddedAppServerUrl);

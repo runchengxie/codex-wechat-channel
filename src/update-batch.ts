@@ -1,4 +1,12 @@
-export async function processUpdateBatch({ response, dispatch, saveCursor }) {
+export async function processUpdateBatch<T>({
+  response,
+  dispatch,
+  saveCursor,
+}: {
+  response: { msgs?: T[]; get_updates_buf?: string };
+  dispatch: (message: T) => Promise<void> | void;
+  saveCursor: (cursor: string) => Promise<void> | void;
+}): Promise<void> {
   const messages = response.msgs || [];
   const results = await Promise.allSettled(
     messages.map((message) => Promise.resolve().then(() => dispatch(message))),

@@ -30,11 +30,11 @@ export const PATHS = {
   mediaDir: path.join(DEFAULT_DATA_DIR, "media"),
 };
 
-export function ensureDir(dirPath) {
+export function ensureDir(dirPath: string): void {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-export function loadJson(filePath, fallback) {
+export function loadJson(filePath: string, fallback: unknown): unknown {
   try {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch {
@@ -42,12 +42,12 @@ export function loadJson(filePath, fallback) {
   }
 }
 
-export function saveJson(filePath, value) {
+export function saveJson(filePath: string, value: unknown): void {
   ensureDir(path.dirname(filePath));
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
 }
 
-export function loadText(filePath, fallback = "") {
+export function loadText(filePath: string, fallback = ""): string {
   try {
     return fs.readFileSync(filePath, "utf8");
   } catch {
@@ -55,7 +55,7 @@ export function loadText(filePath, fallback = "") {
   }
 }
 
-export function saveText(filePath, value) {
+export function saveText(filePath: string, value: string): void {
   ensureDir(path.dirname(filePath));
   fs.writeFileSync(filePath, value, { encoding: "utf8", mode: 0o600 });
 }
@@ -64,6 +64,6 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
-export function shortId(value) {
+export function shortId(value: unknown): string {
   return String(value || "unknown").split("@")[0] || String(value || "unknown");
 }

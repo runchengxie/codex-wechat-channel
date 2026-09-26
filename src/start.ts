@@ -12,12 +12,12 @@ import {
   saveJson,
   saveText,
   shortId,
-} from "./constants.mjs";
-import { CodexAppServerClient } from "./codex-app-server.mjs";
-import { isSenderAllowed, parseAllowedUsers } from "./access-control.mjs";
-import { conversationSettings, parseWechatCommand, runWechatCommand } from "./commands.mjs";
-import { runSetup } from "./setup.mjs";
-import { processUpdateBatch } from "./update-batch.mjs";
+} from "./constants.js";
+import { CodexAppServerClient } from "./codex-app-server.js";
+import { isSenderAllowed, parseAllowedUsers } from "./access-control.js";
+import { conversationSettings, parseWechatCommand, runWechatCommand } from "./commands.js";
+import { runSetup } from "./setup.js";
+import { processUpdateBatch } from "./update-batch.js";
 import {
   downloadImageAttachment,
   extractContent,
@@ -28,30 +28,49 @@ import {
   normalizeWechatText,
   sendTextMessage,
   showTypingIndicator,
-} from "./wechat-api.mjs";
+} from "./wechat-api.js";
+
+import { object, string, errorMessage, type UserInput, type ThreadSettings } from "./protocol.js";
+import { accountFromJson, type Account, type WechatMessage, type ExtractedContent } from "./wechat-types.js";
+import { threadStoreFromJson, isActiveThread, type ThreadStore, type ActiveThread } from "./thread-store.js";
+
+interface MessageMeta {
+  isGroup: boolean;
+  replyTarget: string;
+  senderId: string;
+  senderLabel: string;
+  conversationKey: string;
+}
+interface StartOptions extends Omit<ThreadSettings, "sandbox"> {
+  baseUrl?: string;
+  sandbox?: string;
+  approvalPolicy?: string;
+  appServerUrl?: string;
+}
 
 const MAX_CONSECUTIVE_FAILURES = 3;
 const RETRY_DELAY_MS = 2_000;
 const BACKOFF_DELAY_MS = 30_000;
 
-function log(message) {
+function log(message: string) {
   process.stderr.write(`[bridge] ${message}\n`);
 }
 
-function logError(message) {
+function logError(message: string) {
   process.stderr.write(`[bridge] ERROR: ${message}\n`);
 }
 
-function sleep(ms) {
+function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 class ConversationQueue {
+  chains: Map<string, Promise<void>>;
   constructor() {
     this.chains = new Map();
   }
 
-  run(key, task) {
+  run(key: string, task: () => Promise<void>) {
     const previous = this.chains.get(key) ?? Promise.resolve();
     const next = previous
       .catch(() => undefined)
@@ -68,22 +87,22 @@ class ConversationQueue {
 }
 
 function loadContextTokens() {
-  return new Map(Object.entries(loadJson(PATHS.contextTokens, {})));
+  return new Map(Object.entries(object(loadJson(PATHS.contextTokens, {}))).map(([key, value]) => [key, string(value)]));
 }
 
-function persistContextTokens(contextTokens) {
+function persistContextTokens(contextTokens: Map<string, string>) {
   saveJson(PATHS.contextTokens, Object.fromEntries(contextTokens));
 }
 
 function loadThreadStore() {
-  return loadJson(PATHS.threads, {});
+  return threadStoreFromJson(loadJson(PATHS.threads, {}));
 }
 
-function persistThreadStore(threadStore) {
+function persistThreadStore(threadStore: ThreadStore) {
   saveJson(PATHS.threads, threadStore);
 }
 
-function buildDeveloperInstructions(extraInstructions) {
+function buildDeveloperInstructions(extraInstructions: string | undefined) {
   const base = [
     "You are replying inside a real WeChat chat through codex-wechat-channel.",
     "Reply in plain text only.",
@@ -101,14 +120,14 @@ function buildDeveloperInstructions(extraInstructions) {
   return base.join("\n");
 }
 
-function buildThreadName(meta) {
+function buildThreadName(meta: MessageMeta) {
   if (meta.isGroup) {
     return `wechat:group:${shortId(meta.replyTarget)}`;
   }
   return `wechat:dm:${shortId(meta.replyTarget)}`;
 }
 
-function buildUserInputs(meta, extracted, localImagePath) {
+function buildUserInputs(meta: MessageMeta, extracted: ExtractedContent, localImagePath: string | null) {
   const lines = [
     "WeChat inbound message.",
     `Chat type: ${meta.isGroup ? "group" : "direct"}`,
@@ -121,7 +140,7 @@ function buildUserInputs(meta, extracted, localImagePath) {
     extracted.text,
   ];
 
-  const inputs = [
+  const inputs: UserInput[] = [
     {
       type: "text",
       text: lines.join("\n"),
@@ -139,7 +158,7 @@ function buildUserInputs(meta, extracted, localImagePath) {
   return inputs;
 }
 
-async function ensureThread(client, threadStore, conversationKey, meta) {
+async function ensureThread(client: CodexAppServerClient, threadStore: ThreadStore, conversationKey: string, meta: MessageMeta): Promise<ActiveThread> {
   const existing = threadStore[conversationKey];
   const settings = conversationSettings(client, existing);
   if (existing?.threadId) {
@@ -151,13 +170,13 @@ async function ensureThread(client, threadStore, conversationKey, meta) {
         });
       } catch (error) {
         logError(
-          `resume failed for ${conversationKey} (${existing.threadId}): ${error.message}; creating new thread`,
+          `resume failed for ${conversationKey} (${existing.threadId}): ${errorMessage(error)}; creating new thread`,
         );
-        threadStore[conversationKey] = { model: existing.model, effort: existing.effort, cwd: existing.cwd, history: existing.history };
+        threadStore[conversationKey] = { model: existing.model, effort: existing.effort, cwd: existing.cwd, sandbox: existing.sandbox, history: existing.history };
       }
     }
 
-    if (threadStore[conversationKey]?.threadId) {
+    if (isActiveThread(threadStore[conversationKey])) {
       threadStore[conversationKey].updatedAt = nowIso();
       threadStore[conversationKey].lastSenderId = meta.senderId;
       threadStore[conversationKey].lastReplyTarget = meta.replyTarget;
@@ -183,7 +202,7 @@ async function ensureThread(client, threadStore, conversationKey, meta) {
   return record;
 }
 
-async function maybeDownloadImage(meta, extracted) {
+async function maybeDownloadImage(meta: MessageMeta, extracted: ExtractedContent) {
   if (extracted.msgType !== "image" || !extracted.mediaItem) {
     return null;
   }
@@ -198,19 +217,29 @@ async function maybeDownloadImage(meta, extracted) {
       fileStem: stamp,
     });
   } catch (error) {
-    logError(`image download failed for ${meta.replyTarget}: ${error.message}`);
+    logError(`image download failed for ${meta.replyTarget}: ${errorMessage(error)}`);
     return null;
   }
 }
 
-async function processMessage({
+async function resumeCommandThread(client: CodexAppServerClient, threadStore: ThreadStore, conversationKey: string, meta: MessageMeta, commandName: string): Promise<void> {
+  const record = threadStore[conversationKey];
+  if (record?.threadId && ["compact", "fork", "rename", "review"].includes(commandName) && !client.isThreadLoaded(record.threadId)) {
+    await client.resumeThread(record.threadId, {
+      name: record.name || buildThreadName(meta),
+      settings: conversationSettings(client, record),
+    });
+  }
+}
+
+export async function processMessage({
   account,
   client,
   contextTokens,
   threadStore,
   message,
   allowedUsers,
-}) {
+}: { account: Account; client: CodexAppServerClient; contextTokens: Map<string, string>; threadStore: ThreadStore; message: WechatMessage; allowedUsers: ReadonlySet<string> }) {
   if (!isInboundUserMessage(message)) {
     return;
   }
@@ -267,13 +296,7 @@ async function processMessage({
 
     const command = extracted.msgType === "text" ? parseWechatCommand(extracted.text) : null;
     if (command) {
-      const record = threadStore[conversationKey];
-      if (record?.threadId && ["compact", "fork", "rename", "review"].includes(command.name) && !client.isThreadLoaded(record.threadId)) {
-        await client.resumeThread(record.threadId, {
-          name: record.name || buildThreadName(meta),
-          settings: conversationSettings(client, record),
-        });
-      }
+      await resumeCommandThread(client, threadStore, conversationKey, meta, command.name);
       const response = await runWechatCommand({ command, client, threadStore, conversationKey });
       persistThreadStore(threadStore);
       await sendTextMessage(account, replyTarget, response, contextToken);
@@ -303,12 +326,27 @@ async function processMessage({
     persistThreadStore(threadStore);
     log(`reply sent to ${shortId(replyTarget)}: "${finalText.slice(0, 80)}"`);
   } catch (error) {
-    logError(`message pipeline failed for ${shortId(replyTarget)}: ${error.message}`);
-    await sendTextMessage(account, replyTarget, `Codex command failed: ${error.message}`.slice(0, 500), contextToken);
+    logError(`message pipeline failed for ${shortId(replyTarget)}: ${errorMessage(error)}`);
+    await sendTextMessage(account, replyTarget, `Codex command failed: ${errorMessage(error)}`.slice(0, 500), contextToken);
   }
 }
 
-export async function runStart(options = {}) {
+function createClient(options: StartOptions): CodexAppServerClient {
+  return new CodexAppServerClient({
+    cwd: options.cwd || process.env.CODEX_WECHAT_CWD || process.cwd(),
+    model: options.model || process.env.CODEX_WECHAT_MODEL || null,
+    sandbox: options.sandbox || DEFAULT_SANDBOX,
+    approvalPolicy: options.approvalPolicy || DEFAULT_APPROVAL_POLICY,
+    appServerUrl: options.appServerUrl || process.env.CODEX_WECHAT_APP_SERVER_URL || undefined,
+    developerInstructions: buildDeveloperInstructions(
+      process.env.CODEX_WECHAT_DEVELOPER_INSTRUCTIONS,
+    ),
+    log,
+    logError,
+  });
+}
+
+export async function runStart(options: StartOptions = {}) {
   ensureDir(PATHS.dataDir);
   ensureDir(PATHS.mediaDir);
 
@@ -317,7 +355,8 @@ export async function runStart(options = {}) {
     log("WARNING: CODEX_WECHAT_ALLOWED_USERS is empty; messages from all users are allowed.");
   }
 
-  let account = loadJson(PATHS.account, null);
+  const savedAccount = loadJson(PATHS.account, null);
+  let account = savedAccount === null ? null : accountFromJson(savedAccount);
   if (!account) {
     log("no saved WeChat credentials, starting QR login");
     account = await runSetup({
@@ -329,18 +368,7 @@ export async function runStart(options = {}) {
   const contextTokens = loadContextTokens();
   const threadStore = loadThreadStore();
   const queue = new ConversationQueue();
-  const client = new CodexAppServerClient({
-    cwd: options.cwd || process.env.CODEX_WECHAT_CWD || process.cwd(),
-    model: options.model || process.env.CODEX_WECHAT_MODEL || null,
-    sandbox: options.sandbox || DEFAULT_SANDBOX,
-    approvalPolicy: options.approvalPolicy || DEFAULT_APPROVAL_POLICY,
-    appServerUrl: options.appServerUrl || process.env.CODEX_WECHAT_APP_SERVER_URL || null,
-    developerInstructions: buildDeveloperInstructions(
-      process.env.CODEX_WECHAT_DEVELOPER_INSTRUCTIONS,
-    ),
-    log,
-    logError,
-  });
+  const client = createClient(options);
 
   await client.connect();
   log(`connected to Codex app-server, cwd=${client.options.cwd}`);
@@ -349,7 +377,7 @@ export async function runStart(options = {}) {
   let consecutiveFailures = 0;
   let stopping = false;
 
-  async function shutdown(signal) {
+  async function shutdown(signal: string) {
     if (stopping) {
       return;
     }
@@ -412,7 +440,7 @@ export async function runStart(options = {}) {
       consecutiveFailures = 0;
     } catch (error) {
       consecutiveFailures += 1;
-      logError(`poll loop error: ${error.message}`);
+      logError(`poll loop error: ${errorMessage(error)}`);
       await sleep(
         consecutiveFailures >= MAX_CONSECUTIVE_FAILURES
           ? BACKOFF_DELAY_MS

@@ -2,12 +2,10 @@
 
 本文记录发布当时的变更和验证结果，不代表当前版本已重新执行这些检查。
 
-## 摘要
-
-这次补齐了 Linux 服务器部署链路里最缺的一环：
+这次增加了 Linux 后台服务和配置监视：
 
 - 把 bridge 做成正式 `systemd` 服务，支持开机自启与异常退出自动拉起
-- 把 `~/.codex/config.toml`、`~/.codex/AGENTS.md`、`~/.codex/skills/`、`~/.codex/prompts/` 的变更接进递归 watcher，修改后自动重启 bridge
+- 把 `~/.codex/config.toml`、`~/.codex/AGENTS.md`、`~/.codex/skills/`、`~/.codex/prompts/` 的变更加入递归配置监视，修改后自动重启 bridge
 
 ## 变更内容
 

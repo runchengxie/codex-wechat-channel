@@ -4,32 +4,38 @@
   "description": "Bridge WeChat ClawBot messages into Codex app-server threads",
   "type": "module",
   "bin": {
-    "codex-wechat-channel": "./cli.mjs"
+    "codex-wechat-channel": "./dist/cli.js"
   },
   "files": [
-    "cli.mjs",
-    "src/",
-    "scripts/bridgectl.mjs",
-    "scripts/probe-app-server.mjs",
-    "scripts/servicectl.mjs",
-    "scripts/watch-codex-config.sh",
+    "dist/cli.js",
+    "dist/cli.js.map",
+    "dist/src/",
+    "dist/scripts/",
     "docs/plan-and-progress.md",
     "docs/releases/",
-    "README.md"
+    "README.md",
+    "docs/maintenance-audit.md"
   ],
   "scripts": {
-    "start": "node cli.mjs start",
-    "setup": "node cli.mjs setup",
-    "check": "node --check cli.mjs && node --check src/constants.mjs && node --check src/commands.mjs && node --check src/wechat-api.mjs && node --check src/codex-app-server.mjs && node --check src/setup.mjs && node --check src/start.mjs && node --check src/access-control.mjs && node --check src/update-batch.mjs && node --check scripts/probe-app-server.mjs && node --check scripts/bridgectl.mjs && node --check scripts/servicectl.mjs",
-    "test": "node --test test/*.test.mjs",
-    "probe": "node cli.mjs probe",
-    "bridge:start": "node cli.mjs bridge start",
-    "bridge:status": "node cli.mjs bridge status",
-    "bridge:stop": "node cli.mjs bridge stop",
-    "bridge:probe": "node cli.mjs probe",
-    "service:install": "node cli.mjs service install",
-    "service:status": "node cli.mjs service status",
-    "service:uninstall": "node cli.mjs service uninstall"
+    "start": "npm run build && node dist/cli.js start",
+    "setup": "npm run build && node dist/cli.js setup",
+    "clean": "node tools/clean-build.mjs",
+    "build": "npm run clean && tsc -p tsconfig.json && node tools/copy-runtime-assets.mjs",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "prepack": "npm run build",
+    "probe": "npm run build && node dist/cli.js probe",
+    "bridge:start": "npm run build && node dist/cli.js bridge start",
+    "bridge:status": "npm run build && node dist/cli.js bridge status",
+    "bridge:stop": "npm run build && node dist/cli.js bridge stop",
+    "bridge:probe": "npm run build && node dist/cli.js probe",
+    "service:install": "npm run build && node dist/cli.js service install",
+    "service:status": "npm run build && node dist/cli.js service status",
+    "service:uninstall": "npm run build && node dist/cli.js service uninstall",
+    "audit:code": "npm run build && node dist/tools/maintenance-report.js",
+    "lint": "eslint cli.ts src scripts test tools",
+    "test:coverage": "npm run build && c8 --all --include=\"dist/cli.js\" --include=\"dist/src/**/*.js\" --include=\"dist/scripts/**/*.js\" --exclude=\"dist/test/**\" --exclude=\"dist/tools/**\" --check-coverage --lines=70 --branches=60 --functions=60 --reporter=text --reporter=json-summary node --test dist/test/*.test.js && node dist/tools/check-coverage.js",
+    "check:package": "npm run build && node dist/tools/check-package.js"
   },
   "engines": {
     "node": ">=22"
@@ -46,11 +52,19 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/renqingfei/codex-wechat-channel.git"
+    "url": "git+https://github.com/runchengxie/codex-wechat-channel.git"
   },
   "bugs": {
-    "url": "https://github.com/renqingfei/codex-wechat-channel/issues"
+    "url": "https://github.com/runchengxie/codex-wechat-channel/issues"
   },
-  "homepage": "https://github.com/renqingfei/codex-wechat-channel#readme",
-  "license": "MIT"
+  "homepage": "https://github.com/runchengxie/codex-wechat-channel#readme",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "c8": "^12.0.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-sonarjs": "^4.2.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1"
+  }
 }

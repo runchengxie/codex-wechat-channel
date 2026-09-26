@@ -3,25 +3,26 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { PATHS, ensureDir, loadText, saveText } from "../src/constants.mjs";
+import { PATHS, ensureDir, loadText, saveText } from "../src/constants.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(__dirname, "..");
-const CLI_PATH = path.join(PROJECT_ROOT, "cli.mjs");
+const RUNTIME_ROOT = path.resolve(__dirname, "..");
+const PROJECT_ROOT = path.resolve(RUNTIME_ROOT, "..");
+const CLI_PATH = path.join(RUNTIME_ROOT, "cli.js");
 
 function isMainModule() {
   return process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 }
 
-function log(message) {
+function log(message: string) {
   process.stderr.write(`[bridgectl] ${message}\n`);
 }
 
-function sleep(ms) {
+function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForProcessExit(pid, timeoutMs = 5_000) {
+async function waitForProcessExit(pid: number, timeoutMs = 5_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (!isProcessRunning(pid)) {
@@ -33,7 +34,7 @@ async function waitForProcessExit(pid, timeoutMs = 5_000) {
   return !isProcessRunning(pid);
 }
 
-function removeFile(filePath) {
+function removeFile(filePath: string) {
   try {
     fs.unlinkSync(filePath);
   } catch {
@@ -51,7 +52,7 @@ function readBridgePid() {
   return Number.isInteger(pid) && pid > 0 ? pid : null;
 }
 
-function isProcessRunning(pid) {
+function isProcessRunning(pid: number | null | undefined) {
   if (!pid) {
     return false;
   }
@@ -64,13 +65,13 @@ function isProcessRunning(pid) {
   }
 }
 
-async function killProcessTree(pid) {
+async function killProcessTree(pid: number) {
   if (!pid) {
     return;
   }
 
   if (process.platform === "win32") {
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       const killer = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
         stdio: "ignore",
         windowsHide: true,
@@ -88,7 +89,7 @@ async function killProcessTree(pid) {
   }
 }
 
-function tailLog(filePath, lines = 20) {
+function tailLog(filePath: string, lines = 20) {
   const text = loadText(filePath, "").trim();
   if (!text) {
     return "";
@@ -113,7 +114,7 @@ Examples:
   codex-wechat-channel bridge stop`);
 }
 
-async function startBridge(extraArgs) {
+async function startBridge(extraArgs: string[]) {
   ensureDir(PATHS.dataDir);
 
   const existingPid = readBridgePid();
