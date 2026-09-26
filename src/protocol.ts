@@ -50,7 +50,8 @@ export function model(value: unknown): Model {
 
 export type UserInput =
   | { type: "text"; text: string; text_elements: unknown[] }
-  | { type: "localImage"; path: string };
+  | { type: "localImage"; path: string }
+  | { type: "localAudio"; path: string };
 
 export interface TurnResult {
   text: string;

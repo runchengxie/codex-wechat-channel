@@ -7,6 +7,7 @@ import fs from "node:fs";
 import { PATHS } from "../src/constants.js";
 import { temporaryData } from "./helpers.js";
 import { processUpdateBatch } from "../src/update-batch.js";
+import { object, string } from "../src/protocol.js";
 import type { WechatMessage } from "../src/wechat-types.js";
 import type { ThreadStore } from "../src/thread-store.js";
 
@@ -146,6 +147,55 @@ await test("text attachments are decrypted and included with their caption in th
   assert.match(serialized, /Please read this/);
   assert.match(serialized, /attachment body/);
   assert.doesNotMatch(serialized, /\/attachment/);
+});
+
+await test("video audio reaches Codex as localAudio and is removed after the turn", async (t) => {
+  temporaryData(t);
+  const client = new CodexAppServerClient();
+  t.mock.method(client, "connect", async () => {});
+  t.mock.method(client, "createThread", async () => ({ id: "thread" }));
+  let receivedInputs: unknown[] = [];
+  let audioPath = "";
+  t.mock.method(client, "sendTurn", async (_threadId: string, inputs: unknown[]) => {
+    receivedInputs = inputs;
+    const audioInput = object(inputs.find((input) => object(input).type === "localAudio"));
+    audioPath = string(audioInput.path);
+    await fs.promises.access(audioPath);
+    return { text: "video understood", commentary: "" };
+  });
+  const key = Buffer.alloc(16, 4);
+  const cipher = crypto.createCipheriv("aes-128-ecb", key, null);
+  const encrypted = Buffer.concat([cipher.update(Buffer.from("encrypted video")), cipher.final()]);
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith("/getconfig")) return Response.json({});
+    if (url.endsWith("/sendmessage")) return Response.json({ ret: 0 });
+    return new Response(encrypted);
+  });
+  const mediaCommandRunner = async (command: string, args: string[]) => {
+    if (command === "ffprobe") return JSON.stringify({ format: { duration: "8" }, streams: [{ codec_type: "audio" }] });
+    const output = args.at(-1);
+    assert.ok(output);
+    if (output.endsWith(".mp3")) await fs.promises.writeFile(output, "mp3 audio");
+    else await fs.promises.writeFile(output.replace("%02d", "01"), "video frame");
+    return "";
+  };
+  await processMessage({
+    account,
+    client,
+    contextTokens: new Map([["sender", "context"]]),
+    threadStore: {},
+    mediaCommandRunner,
+    message: {
+      ...message,
+      item_list: [{ type: 5, video_item: {
+        media: { full_url: "https://cdn.weixin.qq.com/video", aes_key: key.toString("base64") },
+      } }],
+    },
+  });
+  assert.equal(object(receivedInputs[1]).type, "localImage");
+  assert.equal(object(receivedInputs[2]).type, "localAudio");
+  await assert.rejects(fs.promises.access(audioPath));
 });
 
 await test("startup loads saved state, polls and persists the cursor, then handles shutdown", async (t) => {

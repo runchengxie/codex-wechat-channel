@@ -8,10 +8,9 @@ import { object, string } from "../src/protocol.js";
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error("Run this check through npm run check:package");
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "wechat-package-"));
-const environment = { ...process.env, npm_config_cache: path.join(temporary, "cache") };
 
 function npm(args: string[]): string {
-  return execFileSync(process.execPath, [npmCli!, ...args], { encoding: "utf8", env: environment });
+  return execFileSync(process.execPath, [npmCli!, ...args], { encoding: "utf8" });
 }
 
 try {
