@@ -105,6 +105,8 @@ codex-wechat-channel bridge start --cwd /path/to/repository --model MODEL
 
 默认权限允许 Codex 在沙盒策略范围内执行操作。若需限制访问，可设置 `CODEX_WECHAT_SANDBOX=workspace-write` 或 `read-only`。`approvalPolicy=never` 不会等待人工审批，部署前应按自己的使用场景选择权限。
 
+桥接程序目前没有微信用户白名单，只检查收到的消息是否来自用户。请只在微信侧能限制为可信用户和会话的环境中运行。否则，收到的消息可能触发具有上述沙盒权限的 Codex 操作。
+
 ## 本地开发与检查
 
 项目使用 Node.js 内置测试运行器，目前不依赖第三方 npm 包。
