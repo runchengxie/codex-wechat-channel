@@ -46,6 +46,8 @@ npm test
 
 `npm test` 使用 Node.js 内置测试运行器。现有测试覆盖聊天命令和部分 app-server 通知处理。微信网络交互、完整启动关停流程、后台进程控制和 systemd 安装目前没有自动化集成测试。`docs/releases/` 中的验证记录是对应发布时的历史结果，不代表当前版本已重新执行过这些部署步骤。
 
+GitHub Actions 会在 Node.js 22 上运行 JavaScript 语法检查、测试和 watcher 脚本的 Bash 语法检查。Node 内置覆盖率只统计测试加载的模块，当前没有设置全项目覆盖率门槛。
+
 ## 目前没有的功能
 
 - 群聊白名单或按不同聊天设置不同权限。

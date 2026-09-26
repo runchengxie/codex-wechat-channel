@@ -83,6 +83,18 @@ sudo codex-wechat-channel service uninstall
 
 安装命令会创建 bridge 和配置监视服务。配置监视依赖 `inotify-tools`，安装器会在 Debian 或 Ubuntu 上尝试通过 `apt-get` 安装。监视器会在 `~/.codex/config.toml`、`AGENTS.md`、`skills/` 或 `prompts/` 内容变化后重启 bridge。需要自定义用户或 home 目录时，可传入 `--user` 和 `--home`。
 
+systemd 服务不会继承安装命令所在 shell 的环境变量。要为后台服务设置微信发送者白名单，可运行 `sudo systemctl edit codex-wechat-channel.service`，添加以下内容，然后重新加载并重启服务：
+
+```ini
+[Service]
+Environment=CODEX_WECHAT_ALLOWED_USERS=wxid1,wxid2
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart codex-wechat-channel.service
+```
+
 后台命令支持透传启动参数：
 
 ```bash
@@ -115,7 +127,10 @@ codex-wechat-channel bridge start --cwd /path/to/repository --model MODEL
 ```bash
 npm run check
 npm test
+bash -n scripts/watch-codex-config.sh
 ```
+
+公开仓库的 pull request 和 `main` 分支推送会在 Node.js 22 上自动运行这些检查。测试使用内置 `node:test`。Node 的覆盖率报告只统计测试实际加载的模块，目前还没有全项目覆盖率门槛。
 
 ## 本地数据
 

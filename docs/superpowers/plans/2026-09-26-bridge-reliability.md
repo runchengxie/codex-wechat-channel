@@ -103,9 +103,9 @@
 **Interfaces:**
 - CI runs on pushes and pull requests targeting `main` with Node.js 22.
 - CI runs `npm run check`, `npm test`, and `bash -n scripts/watch-codex-config.sh`.
-- `npm run check` includes syntax checks for all test modules as well as runtime JavaScript modules.
+- `npm run check` includes syntax checks for all runtime JavaScript modules; `npm test` loads and executes each test module.
 
-- [ ] Extend `npm run check` to include both test files.
+- [ ] Extend `npm run check` to include the new runtime modules. Keep test modules out of this command because the npm package intentionally omits the `test/` directory; `npm test` loads and executes them in CI.
 - [ ] Run `npm run check`; expect success.
 - [ ] Add the GitHub Actions workflow and ensure it uses only standard setup/checkout actions.
 - [ ] Run `npm test`, `npm run check`, `bash -n scripts/watch-codex-config.sh`, and `node --test --experimental-test-coverage test/*.test.mjs`; expect all tests and syntax checks to pass.
