@@ -1,12 +1,10 @@
-import type { WechatMessage, Updates } from "./wechat-types.js";
-
-export async function processUpdateBatch({
+export async function processUpdateBatch<T>({
   response,
   dispatch,
   saveCursor,
 }: {
-  response: Updates;
-  dispatch: (message: WechatMessage) => Promise<void> | void;
+  response: { msgs?: T[]; get_updates_buf?: string };
+  dispatch: (message: T) => Promise<void> | void;
   saveCursor: (cursor: string) => Promise<void> | void;
 }): Promise<void> {
   const messages = response.msgs || [];

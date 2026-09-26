@@ -83,12 +83,12 @@
 - Tests execute compiled modules from `dist/`.
 - Network and system operations use injected local fakes; production APIs remain unchanged.
 
-- [ ] Move existing tests to TypeScript and verify the baseline 19 behaviors remain covered.
-- [ ] Add failing tests for WeChat message normalization and API error responses using a local fetch fake.
-- [ ] Add startup-level tests proving an unlisted sender does not start Codex or send a reply, and failures only advance the cursor after a delivered failure notice.
-- [ ] Add service rendering tests without invoking `systemctl`, `apt-get`, `sudo`, or file writes outside the test temp directory.
-- [ ] Run targeted and full tests from `dist/test/`.
-- [ ] Commit as `test: cover bridge integration boundaries`.
+- [x] Move existing tests to TypeScript and verify the baseline 19 behaviors remain covered.
+- [x] Add failing tests for WeChat message normalization and API error responses using a local fetch fake.
+- [x] Add startup-level tests proving an unlisted sender does not start Codex or send a reply, and failures only advance the cursor after a delivered failure notice.
+- [x] Add service rendering tests without invoking `systemctl`, `apt-get`, `sudo`, or file writes outside the test temp directory.
+- [x] Run targeted and full tests from `dist/test/`.
+- [x] Commit as `test: cover bridge integration boundaries`.
 
 ### Task 4: Reproducible architecture and dependency audit
 

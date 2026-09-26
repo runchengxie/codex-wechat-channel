@@ -222,7 +222,7 @@ async function maybeDownloadImage(meta: MessageMeta, extracted: ExtractedContent
   }
 }
 
-async function processMessage({
+export async function processMessage({
   account,
   client,
   contextTokens,

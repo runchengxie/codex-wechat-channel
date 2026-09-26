@@ -160,7 +160,7 @@ function resolveHomeDirForUser(user: string) {
   return homeDir;
 }
 
-function renderBridgeService({ user, cwd, homeDir }: { user: string; cwd: string; homeDir: string }) {
+export function renderBridgeService({ user, cwd, homeDir }: { user: string; cwd: string; homeDir: string }) {
   const nodePath = process.execPath;
   const bridgePid = getBridgePidForHome(homeDir);
 
@@ -189,7 +189,7 @@ WantedBy=multi-user.target
 `;
 }
 
-function renderWatchService({ homeDir, serviceName }: { homeDir: string; serviceName: string }) {
+export function renderWatchService({ homeDir, serviceName }: { homeDir: string; serviceName: string }) {
   return `[Unit]
 Description=Watch Codex MCP and skills recursively and restart ${serviceName}
 After=network-online.target ${serviceName}

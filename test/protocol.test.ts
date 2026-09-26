@@ -25,9 +25,9 @@ test("saved thread settings and history survive validation", () => {
   assert.throws(() => threadStoreFromJson({ chat: { history: [{ threadId: false }] } }), /Expected a string/);
 });
 
-function pendingResult(client, method) {
-  let resolve;
-  let reject;
+function pendingResult(client: CodexAppServerClient, method: string) {
+  let resolve!: (value: unknown) => void;
+  let reject!: (reason: unknown) => void;
   const promise = new Promise((resolveResult, rejectResult) => {
     resolve = resolveResult;
     reject = rejectResult;
