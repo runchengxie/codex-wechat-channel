@@ -34,7 +34,7 @@
 **Files:**
 - Create: `tsconfig.json`
 - Create: `package-lock.json`
-- Create: `scripts/clean-build.mjs`
+- Create: `tools/clean-build.mjs`
 - Modify: `package.json`, `.gitignore`, `.github/workflows/ci.yml`
 - Test: add a package smoke test for the built CLI.
 
