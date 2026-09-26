@@ -60,6 +60,12 @@ sudo codex-wechat-channel service uninstall
 
 安装命令会创建桥接和 Codex 配置监视服务。配置监视依赖 `inotify-tools`，在 Debian 或 Ubuntu 上安装器会尝试通过 `apt-get` 安装。修改 `~/.codex/config.toml`、`AGENTS.md`、`skills/` 或 `prompts/` 后，监视服务会重启桥接。自定义运行用户和主目录可使用 `--user`、`--home`。
 
+## 附件处理
+
+微信发送的 txt、md、csv、json 文件会被下载、解密，并将 UTF-8 文本内容交给 Codex。单份附件最多 25 MiB，传给 Codex 的正文最多 100,000 个字符。其他文件格式目前只传递消息里已有的文件名等信息。PDF 和 Office 文件暂不解析。
+
+视频处理需要 `ffmpeg` 和 `ffprobe` 可从服务的 `PATH` 中找到。视频大小上限为 25 MiB，时长上限为 180 秒，程序最多抽取 6 帧交给 Codex。视频画面帧会在处理期间写入本地临时目录，Codex 回合结束后删除。当前不提取视频音轨或做语音识别。若系统缺少工具、视频超限或格式无法解码，程序会告知 Codex，再由 Codex 回复用户。
+
 ## 本地数据
 
 运行数据保存在 `~/.codex/channels/wechat/`：
@@ -71,6 +77,6 @@ sudo codex-wechat-channel service uninstall
 | `context_tokens.json` | 微信回复上下文 |
 | `sync_buf.txt` | 微信长轮询游标 |
 | `bridge.pid`、`bridge.stdout.log`、`bridge.stderr.log` | 后台进程状态和日志 |
-| `media/` | 下载的图片 |
+| `media/` | 下载的图片和处理视频时使用的临时文件 |
 
 请把登录信息和运行数据留在仓库外，不要提交到 Git。

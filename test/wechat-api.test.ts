@@ -35,7 +35,7 @@ await test("image attachments decrypt into a local image and typing uses the ret
     assert.equal(JSON.parse(String(init?.body)).typing_ticket, "ticket");
     return Response.json({ ret: 0 });
   });
-  const file = await downloadImageAttachment({ mediaItem: { cdn_url: "https://wechat.invalid/image", aes_key: key.toString("base64") }, outputDir, fileStem: "attachment" });
+  const file = await downloadImageAttachment({ mediaItem: { cdn_url: "https://novac2c.cdn.weixin.qq.com/image", aes_key: key.toString("base64") }, outputDir, fileStem: "attachment" });
   assert.ok(file);
   assert.ok(file.endsWith(".png"));
   assert.deepEqual(fs.readFileSync(file), image);
@@ -47,7 +47,38 @@ await test("media extraction retains descriptions and skips empty text", () => {
   assert.equal(extractContent({ item_list: [{ type: 1, text_item: { text: " " } }, { type: 2, image_item: { width: 4, height: 5 } }] })?.text, "[图片 (4x5)]");
   assert.equal(extractContent({ item_list: [{ type: 4, file_item: { file_name: "sample.pdf" } }] })?.text, "[文件 sample.pdf]");
   assert.equal(extractContent({ item_list: [{ type: 5, video_item: { duration_ms: 1500 } }] })?.text, "[视频 1.5s]");
+  assert.equal(extractContent({ item_list: [{ type: 5, video_item: { play_length: 2500 } }] })?.text, "[视频 2.5s]");
   assert.equal(extractContent({ item_list: [{ type: 99 }] })?.msgType, "unknown");
+});
+
+await test("message validation retains nested media references and video metadata", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({
+    ret: 0,
+    msgs: [{ item_list: [{
+      type: 4,
+      file_item: {
+        media: {
+          encrypt_query_param: "encrypted-file",
+          aes_key: "key-base64",
+          full_url: "https://cdn.weixin.qq.com/file",
+        },
+        file_name: "notes.txt",
+        len: "12",
+      },
+    }, {
+      type: 5,
+      video_item: { play_length: 4000, video_size: 2048, thumb_media: { full_url: "https://cdn.weixin.qq.com/thumb" } },
+    }] }],
+  }));
+  const result = await getUpdates(account, "");
+  assert.deepEqual(result.msgs?.[0].item_list?.[0].file_item?.media, {
+    encrypt_query_param: "encrypted-file",
+    aes_key: "key-base64",
+    full_url: "https://cdn.weixin.qq.com/file",
+  });
+  assert.equal(result.msgs?.[0].item_list?.[0].file_item?.len, "12");
+  assert.equal(result.msgs?.[0].item_list?.[1].video_item?.play_length, 4000);
+  assert.equal(result.msgs?.[0].item_list?.[1].video_item?.thumb_media?.full_url, "https://cdn.weixin.qq.com/thumb");
 });
 
 await test("a long-poll timeout preserves the current cursor", async (t) => {

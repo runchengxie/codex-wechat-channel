@@ -14,6 +14,7 @@ import {
   shortId,
 } from "./constants.js";
 import { CodexAppServerClient } from "./codex-app-server.js";
+import { extractTextAttachment, extractVideoFrames, type VideoFrameResult } from "./attachments.js";
 import { conversationSettings, parseWechatCommand, runWechatCommand } from "./commands.js";
 import { runSetup } from "./setup.js";
 import { processUpdateBatch } from "./update-batch.js";
@@ -126,7 +127,7 @@ function buildThreadName(meta: MessageMeta) {
   return `wechat:dm:${shortId(meta.replyTarget)}`;
 }
 
-function buildUserInputs(meta: MessageMeta, extracted: ExtractedContent, localImagePath: string | null) {
+function buildUserInputs(meta: MessageMeta, extracted: ExtractedContent, localImagePaths: string[], attachmentText: string) {
   const lines = [
     "WeChat inbound message.",
     `Chat type: ${meta.isGroup ? "group" : "direct"}`,
@@ -136,7 +137,7 @@ function buildUserInputs(meta: MessageMeta, extracted: ExtractedContent, localIm
     `Message type: ${extracted.msgType}`,
     "",
     "Message:",
-    extracted.text,
+    attachmentText,
   ];
 
   const inputs: UserInput[] = [
@@ -147,7 +148,7 @@ function buildUserInputs(meta: MessageMeta, extracted: ExtractedContent, localIm
     },
   ];
 
-  if (localImagePath) {
+  for (const localImagePath of localImagePaths) {
     inputs.push({
       type: "localImage",
       path: localImagePath,
@@ -155,6 +156,50 @@ function buildUserInputs(meta: MessageMeta, extracted: ExtractedContent, localIm
   }
 
   return inputs;
+}
+
+interface PreparedAttachment {
+  text: string;
+  imagePaths: string[];
+  cleanup?: () => Promise<void>;
+}
+
+async function prepareAttachment(extracted: ExtractedContent, localImagePath: string | null): Promise<PreparedAttachment> {
+  const result: PreparedAttachment = {
+    text: extracted.text,
+    imagePaths: localImagePath ? [localImagePath] : [],
+  };
+  if (!extracted.mediaItem) return result;
+
+  if (extracted.msgType === "file") {
+    try {
+      const attachment = await extractTextAttachment(extracted.mediaItem);
+      if (!attachment) {
+        result.text += "\n\n[目前支持读取 txt、md、csv 和 json 文件，尚不能读取此文件格式]";
+      } else {
+        result.text += `\n\n[附件内容：${attachment.fileName}]\n${attachment.text}`;
+      }
+    } catch (error) {
+      logError(`file attachment processing failed: ${errorMessage(error)}`);
+      result.text += "\n\n[文件下载或解密失败，当前只能看到文件名等消息信息]";
+    }
+    return result;
+  }
+
+  if (extracted.msgType === "video") {
+    let frames: VideoFrameResult | undefined;
+    try {
+      frames = await extractVideoFrames(extracted.mediaItem, PATHS.mediaDir);
+      result.imagePaths.push(...frames.paths);
+      result.cleanup = frames.cleanup;
+      result.text += `\n\n[视频已抽取 ${frames.paths.length} 帧供分析]`;
+    } catch (error) {
+      logError(`video attachment processing failed: ${errorMessage(error)}`);
+      result.text += "\n\n[视频下载或抽帧失败，当前只能看到视频时长等消息信息；请确认已安装 ffmpeg 和 ffprobe]";
+      if (frames) await frames.cleanup().catch(() => undefined);
+    }
+  }
+  return result;
 }
 
 async function ensureThread(client: CodexAppServerClient, threadStore: ThreadStore, conversationKey: string, meta: MessageMeta): Promise<ActiveThread> {
@@ -300,24 +345,29 @@ export async function processMessage({
       extracted.text = extracted.text.slice(1);
     }
     const localImagePath = await maybeDownloadImage(meta, extracted);
-    const threadRecord = await ensureThread(client, threadStore, conversationKey, meta);
-    persistThreadStore(threadStore);
-    const reply = await client.sendTurn(
-      threadRecord.threadId,
-      buildUserInputs(meta, extracted, localImagePath),
-      conversationSettings(client, threadRecord),
-    );
-    const finalText = normalizeWechatText(reply.text);
+    const attachment = await prepareAttachment(extracted, localImagePath);
+    try {
+      const threadRecord = await ensureThread(client, threadStore, conversationKey, meta);
+      persistThreadStore(threadStore);
+      const reply = await client.sendTurn(
+        threadRecord.threadId,
+        buildUserInputs(meta, extracted, attachment.imagePaths, attachment.text),
+        conversationSettings(client, threadRecord),
+      );
+      const finalText = normalizeWechatText(reply.text);
 
-    if (!finalText) {
-      logError(`Codex returned empty text for ${replyTarget}`);
-      return;
+      if (!finalText) {
+        logError(`Codex returned empty text for ${replyTarget}`);
+        return;
+      }
+
+      await sendTextMessage(account, replyTarget, finalText, contextToken);
+      threadRecord.updatedAt = nowIso();
+      persistThreadStore(threadStore);
+      log(`reply sent to ${shortId(replyTarget)}: "${finalText.slice(0, 80)}"`);
+    } finally {
+      await attachment.cleanup?.().catch((error: unknown) => logError(`video frame cleanup failed: ${errorMessage(error)}`));
     }
-
-    await sendTextMessage(account, replyTarget, finalText, contextToken);
-    threadRecord.updatedAt = nowIso();
-    persistThreadStore(threadStore);
-    log(`reply sent to ${shortId(replyTarget)}: "${finalText.slice(0, 80)}"`);
   } catch (error) {
     logError(`message pipeline failed for ${shortId(replyTarget)}: ${errorMessage(error)}`);
     await sendTextMessage(account, replyTarget, `Codex command failed: ${errorMessage(error)}`.slice(0, 500), contextToken);

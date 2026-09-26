@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import test from "node:test";
 import { CodexAppServerClient } from "../src/codex-app-server.js";
 import { processMessage, runStart } from "../src/start.js";
@@ -105,6 +106,46 @@ await test("normal messages create and persist threads, reuse context, and send 
   assert.match(fs.readFileSync(PATHS.threads, "utf8"), /"threadId": "thread"/);
   assert.match(sent[0], /answer/);
   assert.doesNotMatch(sent[0], /`answer`/);
+});
+
+await test("text attachments are decrypted and included with their caption in the Codex input", async (t) => {
+  temporaryData(t);
+  const client = new CodexAppServerClient();
+  t.mock.method(client, "connect", async () => {});
+  t.mock.method(client, "createThread", async () => ({ id: "thread" }));
+  let receivedInputs: unknown[] = [];
+  t.mock.method(client, "sendTurn", async (_threadId: string, inputs: unknown[]) => {
+    receivedInputs = inputs;
+    return { text: "read", commentary: "" };
+  });
+  const key = Buffer.alloc(16, 5);
+  const plain = Buffer.from("attachment body");
+  const cipher = crypto.createCipheriv("aes-128-ecb", key, null);
+  const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith("/getconfig")) return Response.json({});
+    if (url.endsWith("/sendmessage")) return Response.json({ ret: 0 });
+    assert.equal(url, "https://cdn.weixin.qq.com/attachment");
+    return new Response(encrypted);
+  });
+  const incoming: WechatMessage = {
+    ...message,
+    context_token: "context",
+    item_list: [
+      { type: 1, text_item: { text: "Please read this" } },
+      { type: 4, file_item: {
+        media: { full_url: "https://cdn.weixin.qq.com/attachment", aes_key: key.toString("base64") },
+        file_name: "note.txt",
+        len: String(plain.length),
+      } },
+    ],
+  };
+  await processMessage({ account, client, contextTokens: new Map([["sender", "context"]]), threadStore: {}, message: incoming });
+  const serialized = JSON.stringify(receivedInputs);
+  assert.match(serialized, /Please read this/);
+  assert.match(serialized, /attachment body/);
+  assert.doesNotMatch(serialized, /\/attachment/);
 });
 
 await test("startup loads saved state, polls and persists the cursor, then handles shutdown", async (t) => {
