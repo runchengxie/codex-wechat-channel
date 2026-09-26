@@ -96,6 +96,7 @@ codex-wechat-channel bridge start --cwd /path/to/repository --model MODEL
 | `CODEX_BIN` | Codex CLI 可执行文件 | `codex` |
 | `CODEX_WECHAT_CWD` | Codex 工作目录 | 当前目录 |
 | `CODEX_WECHAT_MODEL` | 默认模型 | Codex 默认值 |
+| `CODEX_WECHAT_ALLOWED_USERS` | 允许使用桥接的微信发送者 ID，多个 ID 用逗号分隔 | 未设置时允许所有用户，并在启动时警告 |
 | `CODEX_WECHAT_SANDBOX` | 沙盒权限：`read-only`、`workspace-write` 或 `danger-full-access` | `danger-full-access` |
 | `CODEX_WECHAT_APPROVAL_POLICY` | 审批策略 | `never` |
 | `CODEX_WECHAT_APP_SERVER_URL` | 连接已有 app-server 的 WebSocket 地址 | 自动启动内置 app-server |
@@ -105,7 +106,7 @@ codex-wechat-channel bridge start --cwd /path/to/repository --model MODEL
 
 默认权限允许 Codex 在沙盒策略范围内执行操作。若需限制访问，可设置 `CODEX_WECHAT_SANDBOX=workspace-write` 或 `read-only`。`approvalPolicy=never` 不会等待人工审批，部署前应按自己的使用场景选择权限。
 
-桥接程序目前没有微信用户白名单，只检查收到的消息是否来自用户。请只在微信侧能限制为可信用户和会话的环境中运行。否则，收到的消息可能触发具有上述沙盒权限的 Codex 操作。
+未设置 `CODEX_WECHAT_ALLOWED_USERS` 时，桥接会接受所有用户消息并在启动时警告。设置后，只有列表中的发送者可以使用桥接，私聊和群聊都按发送者 ID 判断。建议配置可信用户 ID，避免其他人触发具有上述沙盒权限的 Codex 操作。被拒绝的消息不会触发 Codex。
 
 ## 本地开发与检查
 

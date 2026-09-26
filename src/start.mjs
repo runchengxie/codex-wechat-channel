@@ -14,6 +14,7 @@ import {
   shortId,
 } from "./constants.mjs";
 import { CodexAppServerClient } from "./codex-app-server.mjs";
+import { isSenderAllowed, parseAllowedUsers } from "./access-control.mjs";
 import { conversationSettings, parseWechatCommand, runWechatCommand } from "./commands.mjs";
 import { runSetup } from "./setup.mjs";
 import {
@@ -207,8 +208,14 @@ async function processMessage({
   contextTokens,
   threadStore,
   message,
+  allowedUsers,
 }) {
   if (!isInboundUserMessage(message)) {
+    return;
+  }
+
+  if (!isSenderAllowed(message.from_user_id, allowedUsers)) {
+    log(`ignored message from unlisted sender ${message.from_user_id || "unknown"}`);
     return;
   }
 
@@ -299,6 +306,11 @@ async function processMessage({
 export async function runStart(options = {}) {
   ensureDir(PATHS.dataDir);
   ensureDir(PATHS.mediaDir);
+
+  const allowedUsers = parseAllowedUsers(process.env.CODEX_WECHAT_ALLOWED_USERS);
+  if (allowedUsers.size === 0) {
+    log("WARNING: CODEX_WECHAT_ALLOWED_USERS is empty; messages from all users are allowed.");
+  }
 
   let account = loadJson(PATHS.account, null);
   if (!account) {
@@ -399,6 +411,7 @@ export async function runStart(options = {}) {
               contextTokens,
               threadStore,
               message,
+              allowedUsers,
             });
           })
           .catch((error) => {
