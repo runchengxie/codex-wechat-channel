@@ -31,7 +31,7 @@ export async function runSetup(
 ): Promise<Account> {
   ensureDir(PATHS.dataDir);
 
-  const saved = loadJson(PATHS.account, null);
+  const saved = options.force ? null : loadJson(PATHS.account, null);
   const existing = saved === null ? null : accountFromJson(saved);
   if (existing && !options.force) {
     log(`existing account: ${existing.accountId} (${existing.savedAt})`);

@@ -24,9 +24,9 @@
 
 ### 2. 鉴权回退
 
-- `src/codex-app-server.mjs` 现在会在启动 内置 app-server 前优先检查环境变量
+- `src/codex-app-server.mjs` 现在会在启动内置 app-server 前优先检查环境变量
 - 若当前 shell 没有 `OPENAI_API_KEY`，会回退读取 `codex login` 保存的 `~/.codex/auth.json`
-- 两者都缺失时，会在连接前直接报错，
+- 两者都缺失时，会在连接前直接报错。
 
 ### 3. 后台控制脚本
 

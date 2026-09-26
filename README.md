@@ -149,7 +149,7 @@ bash -n scripts/watch-codex-config.sh
 - `account.json`：微信登录信息
 - `bridge.pid`、`bridge.stdout.log`、`bridge.stderr.log`：后台进程状态和日志
 - `context_tokens.json`：微信回复上下文
-- `threads.json`：聊天与 Codex 会话 的对应关系
+- `threads.json`：聊天与 Codex 会话的对应关系
 - `sync_buf.txt`：微信长轮询游标
 - `media/`：下载的图片
 

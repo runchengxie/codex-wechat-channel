@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 import { PATHS, ensureDir, loadText, saveText } from "../src/constants.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(__dirname, "..");
-const CLI_PATH = path.join(PROJECT_ROOT, "cli.js");
+const RUNTIME_ROOT = path.resolve(__dirname, "..");
+const PROJECT_ROOT = path.resolve(RUNTIME_ROOT, "..");
+const CLI_PATH = path.join(RUNTIME_ROOT, "cli.js");
 
 function isMainModule() {
   return process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

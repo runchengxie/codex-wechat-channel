@@ -5,8 +5,9 @@ import { runSetup } from "../src/setup.js";
 import { PATHS } from "../src/constants.js";
 import { temporaryData } from "./helpers.js";
 
-await test("QR setup saves credentials and later noninteractive setup preserves them", async (t) => {
+await test("forced setup replaces malformed credentials and later noninteractive setup preserves them", async (t) => {
   temporaryData(t);
+  fs.writeFileSync(PATHS.account, "{}", { mode: 0o600 });
   const tty = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
   Object.defineProperty(process.stdin, "isTTY", { value: false, configurable: true });
   t.after(() => {

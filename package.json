@@ -13,7 +13,8 @@
     "dist/scripts/",
     "docs/plan-and-progress.md",
     "docs/releases/",
-    "README.md"
+    "README.md",
+    "docs/maintenance-audit.md"
   ],
   "scripts": {
     "start": "npm run build && node dist/cli.js start",
