@@ -13,10 +13,14 @@
     "dist/scripts/",
     "docs/plan-and-progress.md",
     "docs/usage.md",
+    "docs/usage.zh-CN.md",
     "docs/configuration.md",
+    "docs/configuration.zh-CN.md",
     "docs/development.md",
+    "docs/development.zh-CN.md",
     "docs/releases/",
     "README.md",
+    "README.zh-CN.md",
     "docs/maintenance-audit.md"
   ],
   "scripts": {

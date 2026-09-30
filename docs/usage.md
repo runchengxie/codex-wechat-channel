@@ -1,45 +1,45 @@
-# 使用指南
+# User guide
 
-## 登录与启动
+[中文页面](usage.zh-CN.md)
 
-启动前先检查[沙盒权限](configuration.md)。默认模式为 `danger-full-access`，审批策略为 `never`。
+## Sign in and start
 
-在仓库根目录安装依赖并构建后，运行：
+Review [sandbox permissions](configuration.md) before starting. The default sandbox mode is `danger-full-access`, and the approval policy is `never`.
+
+Install dependencies and build from the repository root, then run:
 
 ```bash
 node dist/cli.js setup
 node dist/cli.js start --cwd /path/to/repository
 ```
 
-`setup` 会显示扫码登录地址，登录信息保存在 `~/.codex/channels/wechat/account.json`。再次登录可使用 `node dist/cli.js setup --force`。未指定 `--cwd` 时，Codex 使用启动命令所在目录。
+`setup` prints a sign-in URL. Account data is saved in `~/.codex/channels/wechat/account.json`. To sign in again, run `node dist/cli.js setup --force`. Without `--cwd`, Codex uses the directory from which the start command was run. Use `--model MODEL` to choose the default model or `--app-server-url WS_URL` to connect to an existing Codex app-server. The bundled app-server needs `OPENAI_API_KEY` or the top-level `OPENAI_API_KEY` field in `~/.codex/auth.json`.
 
-可以使用 `--model MODEL` 选择默认模型，也可以通过 `--app-server-url WS_URL` 连接已有的 Codex app-server。内置 app-server 需要环境变量 `OPENAI_API_KEY`，或 `~/.codex/auth.json` 顶层的 `OPENAI_API_KEY` 字段。其他形式的 Codex 登录记录不能满足当前桥接程序的读取要求。其他选项见[配置与权限](configuration.md)。
+## WeChat commands
 
-## 微信聊天命令
-
-| 命令 | 用途 |
+| Command | Purpose |
 | --- | --- |
-| `/help` | 查看可用命令 |
-| `/model [名称]`、`/models` | 查看或切换当前聊天的模型，支持 `luna`、`sol`、`terra`、`astra` 等快捷名称 |
-| `/effort [级别]` | 设置当前聊天的推理强度 |
-| `/status`、`/config` | 查看模型、推理强度、权限、工作目录和会话 |
-| `/cwd [路径]` | 在启动目录下选择 Git 工作树 |
-| `/new` | 开始新会话，保留聊天设置 |
-| `/threads`、`/resume <id>` | 查看或恢复当前聊天保存的会话 |
-| `/compact` | 压缩当前会话上下文 |
-| `/fork` | 复制当前会话并切换到副本 |
-| `/rename <名称>` | 给当前会话命名 |
-| `/review` | 审查当前 Git 工作树中的未提交变更 |
-| `/diff` | 查看当前 Git 工作树的状态和差异统计 |
-| `/permissions [模式]` | 查看或修改当前聊天的沙盒权限 |
+| `/help` | Show available commands |
+| `/model [name]`, `/models` | View or change the chat model; shortcuts include `luna`, `sol`, `terra`, and `astra` |
+| `/effort [level]` | Set reasoning effort for the chat |
+| `/status`, `/config` | Show model, reasoning effort, permissions, working directory, and session |
+| `/cwd [path]` | Choose a Git worktree inside the startup directory |
+| `/new` | Start a session while keeping chat settings |
+| `/threads`, `/resume <id>` | List or resume saved sessions for the chat |
+| `/compact` | Compact the current session context |
+| `/fork` | Copy the current session and switch to the copy |
+| `/rename <name>` | Rename the current session |
+| `/review` | Review uncommitted changes in the current Git worktree |
+| `/diff` | Show status and diff statistics for the current Git worktree |
+| `/permissions [mode]` | View or change the chat sandbox mode |
 
-`/cwd` 只接受桥接启动目录内的 Git 工作树。`/review` 和 `/diff` 要求当前目录是 Git 工作树。其他以 `/` 开头的消息会被当作不支持的命令。要发送普通的斜杠开头文本，在前面再加一个 `/`，例如 `//plan`。
+`/cwd` accepts only Git worktrees inside the bridge startup directory. `/review` and `/diff` require the current directory to be a Git worktree. Other messages beginning with `/` are treated as unsupported commands. Prefix an ordinary slash-leading message with another slash, for example `//plan`.
 
-`/permissions` 支持 `read-only`、`workspace-write` 和 `danger-full-access`。新设置在下一次使用会话时生效，已有上下文保留，`/new` 也会保留该设置。服务以更低权限重启后，实际权限受新的上限限制。
+`/permissions` accepts `read-only`, `workspace-write`, and `danger-full-access`. New settings apply the next time the session is used; existing context is retained, and `/new` preserves the setting. The service permission limit always applies.
 
-## 后台运行
+## Run in the background
 
-在稳定的源码目录构建后，可以执行：
+Build from a stable source directory, then run:
 
 ```bash
 node dist/cli.js bridge start --cwd /path/to/repository
@@ -48,9 +48,9 @@ node dist/cli.js bridge stop
 node dist/cli.js probe
 ```
 
-需要全局命令时，可在稳定的源码目录运行 `npm link`，然后使用 `codex-wechat-channel`。源码更新后要重新构建。常驻服务应指向稳定安装目录，不要指向开发任务的临时 worktree。
+Run `npm link` from the stable source directory to use the global `codex-wechat-channel` command. Rebuild after source updates. A long-running service should point to a stable installation directory, not a temporary development worktree.
 
-Linux 上还可以安装 systemd 服务：
+On Linux, install or manage a systemd service with:
 
 ```bash
 sudo codex-wechat-channel service install --cwd /path/to/repository
@@ -58,25 +58,25 @@ codex-wechat-channel service status
 sudo codex-wechat-channel service uninstall
 ```
 
-安装命令会创建桥接和 Codex 配置监视服务。配置监视依赖 `inotify-tools`，在 Debian 或 Ubuntu 上安装器会尝试通过 `apt-get` 安装。修改 `~/.codex/config.toml`、`AGENTS.md`、`skills/` 或 `prompts/` 后，监视服务会重启桥接。自定义运行用户和主目录可使用 `--user`、`--home`。
+The installer creates bridge and Codex configuration watcher services. The watcher requires `inotify-tools`; on Debian or Ubuntu the installer attempts to install it with `apt-get`. Changes to `~/.codex/config.toml`, `AGENTS.md`, `skills/`, or `prompts/` restart the bridge. Use `--user` and `--home` for a custom runtime user and home directory.
 
-## 附件处理
+## Attachments and video
 
-微信发送的 txt、md、csv、json、pdf、docx 文件会被下载、解密，并提取文本交给 Codex。单份附件最多 25 MiB，传给 Codex 的正文最多 100,000 个字符。PDF 最多提取前 100 页。扫描版、加密或无法提取文字的 PDF 不做 OCR。DOCX 以纯文本形式读取，排版样式不会保留。旧版 `.doc`、表格 `.xlsx`、演示文稿 `.pptx` 和其他格式暂不解析，只会传递微信消息中已有的文件名等信息。
+The bridge downloads and decrypts `txt`, `md`, `csv`, `json`, `pdf`, and `docx` attachments and extracts their text for Codex. Each attachment is limited to 25 MiB, extracted text to 100,000 characters, and PDFs to the first 100 pages. Scanned, encrypted, or textless PDFs are not OCR processed. DOCX files are read as plain text. Legacy `.doc`, `.xlsx`, `.pptx`, and other formats are not parsed; the message's existing metadata, such as a filename, is passed along.
 
-视频处理需要 `ffmpeg` 和 `ffprobe` 可从服务的 `PATH` 中找到。视频大小上限为 25 MiB，时长上限为 180 秒，程序最多抽取 6 帧。若视频有音轨，程序还会生成单声道、16 kHz、32 kbps 的 MP3，音频不超过 8 MiB，再将画面和音频交给 Codex。媒体文件只在处理期间保存在本地临时目录，Codex 回合结束后删除。音轨提取失败时仍会发送画面帧。真实模型对音频的识别效果取决于当前 Codex 服务和模型，项目的本地测试不会连接真实账号验证此行为。若系统缺少工具、视频超限或格式无法解码，程序会告知 Codex，再由 Codex 回复用户。
+Video processing requires `ffmpeg` and `ffprobe` on the service `PATH`. Videos are limited to 25 MiB and 180 seconds, and at most six frames are extracted. If there is an audio track, the bridge also creates mono, 16 kHz, 32 kbps MP3 audio, limited to 8 MiB, and sends it with the frames. Media is kept in a local temporary directory during processing and deleted after the Codex turn. If audio extraction fails, frames are still sent. Actual audio recognition depends on the Codex service and model; local tests do not verify it against a real account. If tools are unavailable, limits are exceeded, or decoding fails, the bridge tells Codex and lets Codex respond.
 
-## 本地数据
+## Local data
 
-运行数据保存在 `~/.codex/channels/wechat/`：
+Runtime data is stored under `~/.codex/channels/wechat/`:
 
-| 文件 | 内容 |
+| Path | Contents |
 | --- | --- |
-| `account.json` | 微信登录信息 |
-| `threads.json` | 聊天与 Codex 会话的对应关系、聊天设置 |
-| `context_tokens.json` | 微信回复上下文 |
-| `sync_buf.txt` | 微信长轮询游标 |
-| `bridge.pid`、`bridge.stdout.log`、`bridge.stderr.log` | 后台进程状态和日志 |
-| `media/` | 下载的图片和处理视频时使用的临时文件 |
+| `account.json` | WeChat sign-in data |
+| `threads.json` | Chat-to-Codex session mapping and chat settings |
+| `context_tokens.json` | WeChat reply context |
+| `sync_buf.txt` | WeChat long-poll cursor |
+| `bridge.pid`, `bridge.stdout.log`, `bridge.stderr.log` | Background process state and logs |
+| `media/` | Downloaded images and temporary video files |
 
-请把登录信息和运行数据留在仓库外，不要提交到 Git。
+Keep sign-in credentials and runtime data outside the repository; do not commit them to Git.
