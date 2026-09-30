@@ -19,7 +19,7 @@ try {
   const pack = object(packs[0]);
   assert.ok(Array.isArray(pack.files));
   const files = new Set(pack.files.map((file: unknown) => string(object(file).path)));
-  for (const required of ["dist/cli.js", "dist/cli.js.map", "dist/src/start.js", "dist/scripts/watch-codex-config.sh", "docs/maintenance-audit.md", "docs/usage.md", "docs/configuration.md", "docs/development.md"]) {
+  for (const required of ["dist/cli.js", "dist/cli.js.map", "dist/src/start.js", "dist/scripts/watch-codex-config.sh", "docs/maintenance-audit.md", "docs/usage.md", "docs/usage.zh-CN.md", "docs/configuration.md", "docs/configuration.zh-CN.md", "docs/development.md", "docs/development.zh-CN.md", "README.md", "README.zh-CN.md"]) {
     assert.ok(files.has(required), `Package is missing ${required}`);
   }
   for (const file of files) {

@@ -1,14 +1,16 @@
 # codex-wechat-channel
 
-用微信 ClawBot 私聊给 Codex 发消息，再从微信收到回复。会话在重启后仍可继续使用。
+Message Codex through private chats with the WeChat iOS ClawBot and receive replies in WeChat. Sessions can be resumed after a restart.
 
-目前支持文字、图片、微信已有的语音转写，以及 txt、md、csv、json、pdf、docx 附件。视频会抽取画面帧和可用音轨交给 Codex 分析。视频处理需要系统已安装 `ffmpeg` 和 `ffprobe`。微信语音消息没有转写时，Codex 只会收到语音消息提示。
+[中文 README](README.zh-CN.md)
 
-## 快速开始
+The channel supports text, images, voice transcripts supplied by WeChat, and `txt`, `md`, `csv`, `json`, `pdf`, and `docx` attachments. For video, it extracts frames and any available audio track for Codex to analyze. Video processing requires `ffmpeg` and `ffprobe`. If a WeChat voice message has no transcript, Codex receives only a notice that a voice message was sent.
 
-先准备 Node.js 22 或更新版本、已安装的 Codex CLI、可用的 `OPENAI_API_KEY`，以及可使用微信 iOS ClawBot 的账号。内置 app-server 也能从 `~/.codex/auth.json` 顶层的 `OPENAI_API_KEY` 字段读取密钥，详见[配置与权限](docs/configuration.md)。
+## Quick start
 
-启动前请留意：沙盒模式是 `danger-full-access`，审批策略是 `never`。请先按使用场景阅读[权限设置](docs/configuration.md)。
+You need Node.js 22 or newer, the Codex CLI, an `OPENAI_API_KEY`, and an account that can use the WeChat iOS ClawBot. The built-in app-server can also read the key from the top-level `OPENAI_API_KEY` field in `~/.codex/auth.json`; see [configuration and permissions](docs/configuration.md).
+
+Before starting, review the configured permissions: the default sandbox mode is `danger-full-access` and the approval policy is `never`. Read [permission settings](docs/configuration.md) and choose settings for your use case.
 
 ```bash
 git clone https://github.com/runchengxie/codex-wechat-channel.git
@@ -19,24 +21,24 @@ node dist/cli.js setup
 node dist/cli.js start
 ```
 
-运行 `setup` 后，按终端显示的地址扫码登录。启动成功后，直接给 ClawBot 发消息即可。程序默认在启动命令所在目录处理代码任务，也可以用 `--cwd` 指定目录。停止前台程序可按 `Ctrl+C`。
+After `setup`, scan the address shown in the terminal to sign in. Once the service starts, message the ClawBot. By default, code tasks run in the directory where the command was started; use `--cwd` to select another directory. Press `Ctrl+C` to stop a foreground process.
 
-本仓库是[原项目](https://github.com/renqingfei/codex-wechat-channel)的 fork，这些修改还没有发布为 npm 新版本。请使用上面的源码安装方式。
+This repository is a fork of the [original project](https://github.com/renqingfei/codex-wechat-channel). These changes have not been published as a new npm version. Install from source using the commands above.
 
-## 在微信里使用
+## Use it in WeChat
 
-- `/help`：查看全部聊天命令。
-- `/new`：开始新会话。
-- `/model`：查看或切换模型。
-- `/permissions`：查看当前沙盒权限，带上模式名称可修改当前聊天的设置。
-- `/status`：查看当前模型、工作目录和会话。
+- `/help`: show the available chat commands.
+- `/new`: start a new session.
+- `/model`: view or change the model.
+- `/permissions`: view the current sandbox permissions; include a mode name to change the current chat's setting.
+- `/status`: show the current model, working directory, and session.
 
-聊天权限不会超过桥接服务启动时设置的上限。完整命令说明见[使用指南](docs/usage.md)。
+Chat permissions cannot exceed the limits set when the bridge service starts. See the [user guide](docs/usage.md) for all commands.
 
-## 更多说明
+## More documentation
 
-- [使用指南](docs/usage.md)：聊天命令、后台运行和本地数据。
-- [配置与权限](docs/configuration.md)：沙盒模式、模型和 app-server。
-- [开发与检查](docs/development.md)：TypeScript 构建、测试、CI 和发布包。
-- [功能现状](docs/plan-and-progress.md)：功能边界和模块职责。
-- [代码维护检查](docs/maintenance-audit.md)：复杂度、依赖关系和指标定义。
+- [User guide](docs/usage.md): chat commands, background operation, and local data.
+- [Configuration and permissions](docs/configuration.md): sandbox modes, models, and app-server.
+- [Development and checks](docs/development.md): TypeScript build, tests, CI, and package release.
+- [Feature status](docs/plan-and-progress.md): feature boundaries and module responsibilities.
+- [Maintenance audit](docs/maintenance-audit.md): complexity, dependencies, and metric definitions.
