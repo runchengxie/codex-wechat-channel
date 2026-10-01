@@ -1,5 +1,9 @@
 # 开发约定
 
+## PR review 例外
+
+由用户本人提交，或由用户明确委托 agent 完成的 PR，无需单独的人工 review。这是持续有效的授权，不需要逐个 PR 确认，并覆盖本文件中的一般 PR review 要求。必需检查仍须通过，冲突必须解决。不得绕过 GitHub 分支保护或 ruleset 强制要求的审批。
+
 ## 分支与交付
 
 - 默认向用户维护的 `runchengxie/codex-wechat-channel` 提交 PR，目标为 `main`。本地对应远端名为 `fork`，操作前先核对实际远端。只有用户明确要求时，才向原作者仓库提交 PR。
