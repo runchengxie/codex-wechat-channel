@@ -18,7 +18,7 @@ git submodule status
 
 2026 年 9 月 26 日的本地环境为 Node.js 24.21.0、npm 11.19.0、TypeScript 6.0.3。项目运行要求为 Node.js 22 及以上，类型定义使用 `@types/node` 22.20.4。PDF 和 DOCX 文本提取依赖 `pdfjs-dist`、`mammoth`，依赖版本由 `package-lock.json` 固定。仓库当前没有 submodule。
 
-开发工具加入后发现旧版 SonarJS 的间接依赖存在高危告警，升级 ESLint 和 SonarJS 后，在线审计返回零漏洞。网络故障时应让审计失败，离线安装提示不能替代在线核查。后续以当前锁文件的 `npm audit` 结果为准。
+早期升级 ESLint 和 SonarJS 消除了当时的开发依赖高危告警，该历史结果不代表当前锁文件没有漏洞。2026-10-12 的审计仍报告 `mammoth -> argparse -> sprintf-js` 中危告警，暂无已发布的兼容修复。入口分析和限制见[依赖安全说明](development.md#dependency-security)。网络故障时应让审计失败，离线安装提示不能替代在线核查。以当前锁文件的完整 `npm audit` 结果为准。
 
 ## 指标含义
 

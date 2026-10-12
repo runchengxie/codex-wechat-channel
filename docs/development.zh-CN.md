@@ -6,6 +6,12 @@
 
 项目使用 `pdfjs-dist` 和 `mammoth` 提取 PDF、DOCX 文本。TypeScript、ESLint、SonarJS 和 c8 等开发工具由 `package-lock.json` 锁定。本 fork 的修改尚未发布为 npm 新版本，开发和安装都从源码开始。
 
+## 依赖安全
+
+2026-10-12 的 registry 审计通过 `mammoth -> argparse -> sprintf-js` 报告了中危的 [sprintf-js 精度参数漏洞](https://github.com/advisories/GHSA-hp3w-g68c-fv3c)。目前没有发布修复后的 `sprintf-js` 版本。审计建议降级到 `mammoth@0.3.29`，但这不符合当前依赖契约，本项目不采用该建议。
+
+DOCX 提取在 `src/attachments.ts` 中调用 `mammoth.extractRawText({ buffer })`。Mammoth 在独立 CLI 中导入 `argparse`，本应用不调用该 CLI。漏洞需要攻击者控制格式字符串，当前提取流程中未发现这条路径。这项分析不意味着已移除安装的漏洞依赖，也不保证其他 Mammoth 入口安全。保留审计发现，重新执行完整审计，并在上游发布兼容修复后复核。`npm audit --audit-level=high` 通过仍可能存在中危告警。
+
 ## 本地检查
 
 ```bash
