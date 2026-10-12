@@ -42,3 +42,5 @@ Chat permissions cannot exceed the limits set when the bridge service starts. Se
 - [Development and checks](docs/development.md): TypeScript build, tests, CI, and package release.
 - [Feature status](docs/plan-and-progress.md): feature boundaries and module responsibilities.
 - [Maintenance audit](docs/maintenance-audit.md): complexity, dependencies, and metric definitions.
+
+Built-in WeChat command replies include Chinese. There is no runtime locale selector; see [output language](docs/configuration.md#output-language).

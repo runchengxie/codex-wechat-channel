@@ -25,3 +25,7 @@ In WeChat, `/permissions` shows the current chat mode and the limit set when the
 | `OPENAI_API_KEY` | API key for the bundled app-server | Try the Codex auth file |
 
 If `OPENAI_API_KEY` is unset, the bundled app-server reads only a string field named `OPENAI_API_KEY` at the top level of `~/.codex/auth.json`. Startup fails with an authentication error if the field is absent. When connecting to an existing app-server, that server handles authentication.
+
+## Output language
+
+English and zh-CN documentation describe the same implementation. The bridge has no locale setting or English fallback catalog. Built-in WeChat command replies include Chinese text; model replies follow the conversation and configured instructions. Language does not change command names, sandbox modes, or saved session identifiers.

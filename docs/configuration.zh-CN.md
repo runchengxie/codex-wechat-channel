@@ -27,3 +27,7 @@
 | `OPENAI_API_KEY` | 内置 app-server 使用的 API 密钥 | 尝试读取 Codex 登录文件 |
 
 没有设置 `OPENAI_API_KEY` 环境变量时，内置 app-server 只会从 `~/.codex/auth.json` 顶层的 `OPENAI_API_KEY` 字符串字段读取密钥。该字段不存在时，启动会报鉴权错误。连接已有 app-server 时，由该服务负责鉴权。
+
+## 输出语言
+
+英文和 zh-CN 文档描述同一实现。桥接程序没有 locale 设置或英文 fallback 语言目录，内置微信命令回复包含中文。模型回复由对话和配置的指令决定。语言不改变命令名、沙盒模式或保存的会话标识。

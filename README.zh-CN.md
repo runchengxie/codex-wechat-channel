@@ -42,3 +42,5 @@ node dist/cli.js start
 - [开发与检查](docs/development.zh-CN.md)：TypeScript 构建、测试、CI 和发布包。
 - [功能现状](docs/plan-and-progress.md)：功能边界和模块职责。
 - [代码维护检查](docs/maintenance-audit.md)：复杂度、依赖关系和指标定义。
+
+内置微信命令回复包含中文，当前没有运行时语言切换，详见[输出语言](docs/configuration.zh-CN.md#输出语言)。
