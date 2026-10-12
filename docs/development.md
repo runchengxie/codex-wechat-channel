@@ -6,6 +6,12 @@ This fork uses TypeScript for its runtime, CLI, Node scripts, and tests. `tsc` c
 
 The project uses `pdfjs-dist` and `mammoth` to extract PDF and DOCX text. Development tools including TypeScript, ESLint, SonarJS, and c8 are locked by `package-lock.json`. This fork has not been released as a new npm version; build and install from source.
 
+## Dependency security
+
+The 2026-10-12 registry audit reports the moderate [sprintf-js precision-specifier advisory](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) through `mammoth -> argparse -> sprintf-js`. No patched `sprintf-js` release is published. The suggested `mammoth@0.3.29` downgrade is incompatible with the current dependency contract and is not a remediation used by this project.
+
+DOCX extraction calls `mammoth.extractRawText({ buffer })` in `src/attachments.ts`. Mammoth imports `argparse` in its standalone CLI, which this application does not invoke. The advisory requires attacker-controlled format strings; no such path was identified in the current extraction flow. This assessment does not remove the installed vulnerable dependency or establish safety for other Mammoth entry points. Keep the finding visible, rerun the full audit, and review a compatible upstream fix when one is published. `npm audit --audit-level=high` passing still allows moderate findings.
+
 ## Local checks
 
 ```bash
