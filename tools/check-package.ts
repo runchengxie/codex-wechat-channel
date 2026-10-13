@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { object, string } from "../src/protocol.js";
+import { singlePackage } from "./package-result.js";
 
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error("Run this check through npm run check:package");
@@ -14,9 +15,10 @@ function npm(args: string[]): string {
 }
 
 try {
-  const packs: unknown = JSON.parse(npm(["pack", "--json", "--ignore-scripts", "--pack-destination", temporary]));
-  assert.ok(Array.isArray(packs) && packs.length === 1);
-  const pack = object(packs[0]);
+  const pack = singlePackage(
+    JSON.parse(npm(["pack", "--json", "--ignore-scripts", "--pack-destination", temporary])),
+    "codex-wechat-channel",
+  );
   assert.ok(Array.isArray(pack.files));
   const files = new Set(pack.files.map((file: unknown) => string(object(file).path)));
   for (const required of ["dist/cli.js", "dist/cli.js.map", "dist/src/start.js", "dist/scripts/watch-codex-config.sh", "docs/maintenance-audit.md", "docs/usage.md", "docs/usage.zh-CN.md", "docs/configuration.md", "docs/configuration.zh-CN.md", "docs/development.md", "docs/development.zh-CN.md", "README.md", "README.zh-CN.md"]) {
