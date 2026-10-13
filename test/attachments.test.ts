@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import test from "node:test";
 
@@ -89,6 +90,8 @@ await test("DOCX attachments extract paragraphs as plain text", async (t) => {
     media: { full_url: "https://cdn.weixin.qq.com/notes", aes_key: key.toString("base64") },
   });
   assert.deepEqual(result, { fileName: "notes.docx", text: "DOCX attachment text\n\n第二段内容" });
+  const modules = Object.keys(createRequire(import.meta.url).cache);
+  assert.equal(modules.some((name) => /[/\\](argparse|sprintf-js)[/\\]/u.test(name)), false);
 });
 
 await test("legacy DOC files remain unsupported", async (t) => {
