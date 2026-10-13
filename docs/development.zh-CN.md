@@ -33,3 +33,9 @@ git diff --check
 `audit:code` 报告代码行数、函数复杂度、模块依赖和静态调用关系。指标定义、局限和数据流见[代码维护检查](maintenance-audit.md)。发布的源映射包含对应 TypeScript 源码，便于定位问题。生成的 `dist/`、覆盖率结果和运行数据不提交到 Git。
 
 模块职责和当前功能边界见[功能现状](plan-and-progress.md)。发布记录保存在 `releases/`，其中的部署结果仅对应当时版本。
+
+## Word 解析依赖审计
+
+锁定的 Mammoth 依赖包含 `argparse` 和 `sprintf-js`。[GHSA-hp3w-g68c-fv3c](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) 影响 1.1.3 及以前的 `sprintf-js`，截至 2026-10-14 没有已发布修复版。依赖审计报告这条链上的 3 个 moderate 节点。高危门禁通过不代表依赖树没有漏洞。
+
+附件调用 `mammoth.extractRawText`，不调用 Mammoth CLI。DOCX fixture 检查段落和 Unicode 提取，并确认这条已测试的库调用路径不加载 `argparse` 或 `sprintf-js`。这个有限检查不能保证所有文件或其他调用者的安全。应继续显示审计结果，直到有兼容的上游修复或验证后的替代方案，不应只为清除告警而降级 Mammoth 或强制覆盖不兼容依赖。

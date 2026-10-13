@@ -33,3 +33,9 @@ Pull requests and pushes to `main` in the public repository run the main checks 
 `audit:code` reports lines of code, function complexity, module dependencies, and static call relationships. See [maintenance audit](maintenance-audit.md) for metric definitions, limits, and data flow. Published source maps include corresponding TypeScript source for debugging. Generated `dist/`, coverage output, and runtime data are not committed to Git.
 
 See [feature status](plan-and-progress.md) for module responsibilities and current feature boundaries. Release records are in `releases/`; deployment results describe only the version recorded at the time.
+
+## Word parser dependency audit
+
+The locked Mammoth dependency includes `argparse` and `sprintf-js`. [GHSA-hp3w-g68c-fv3c](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) affects `sprintf-js` through 1.1.3 and has no published patched version as of 2026-10-14. The dependency audit reports three moderate affected nodes in this chain. Passing the high-severity gate does not mean the dependency tree is vulnerability-free.
+
+Attachments call `mammoth.extractRawText`, rather than Mammoth's CLI. The DOCX fixture checks paragraph and Unicode extraction and confirms that this tested library path does not load `argparse` or `sprintf-js`. This bounded check is not a security guarantee for all files or other callers. Keep the audit visible until a compatible upstream fix or validated replacement is available; do not downgrade Mammoth or override an incompatible dependency merely to clear the report.
