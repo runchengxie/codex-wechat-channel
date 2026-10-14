@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { object, string } from "../src/protocol.js";
 import { singlePackage } from "./package-result.js";
 
@@ -15,6 +16,7 @@ function npm(args: string[]): string {
 }
 
 try {
+  execFileSync(process.execPath, ["dist/tools/prepare-word-bundle.js", "prepare"]);
   const pack = singlePackage(
     JSON.parse(npm(["pack", "--json", "--ignore-scripts", "--pack-destination", temporary])),
     "codex-wechat-channel",
@@ -29,6 +31,12 @@ try {
   }
   const prefix = path.join(temporary, "installed");
   npm(["install", "--prefix", prefix, path.join(temporary, string(pack.filename)), "--ignore-scripts", "--no-audit", "--no-fund"]);
+  npm(["ls", "--prefix", prefix, "--all", "--json"]);
+  const installedRequire = createRequire(path.join(prefix, "node_modules/codex-wechat-channel/package.json"));
+  const parserRequire = createRequire(installedRequire.resolve("mammoth/package.json"));
+  const parser = object(JSON.parse(fs.readFileSync(parserRequire.resolve("argparse/package.json"), "utf8")));
+  assert.equal(string(parser.version), "2.0.1", "Installed Word CLI parser must retain the validated version");
+  assert.throws(() => parserRequire.resolve("sprintf-js"), { code: "MODULE_NOT_FOUND" });
   const executable = path.join(prefix, "node_modules", ".bin", "codex-wechat-channel");
   const output = process.platform === "win32"
     ? execFileSync(process.execPath, [path.join(prefix, "node_modules/codex-wechat-channel/dist/cli.js"), "help"], { encoding: "utf8" })
@@ -36,5 +44,6 @@ try {
   assert.match(output, /Usage:/);
   console.log(`Package verified: ${files.size} files; installed executable prints help`);
 } finally {
+  execFileSync(process.execPath, ["dist/tools/prepare-word-bundle.js", "restore"]);
   fs.rmSync(temporary, { recursive: true, force: true });
 }

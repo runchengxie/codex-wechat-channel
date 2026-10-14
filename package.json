@@ -30,7 +30,8 @@
     "build": "npm run clean && tsc -p tsconfig.json && node tools/copy-runtime-assets.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "npm run build && node --test dist/test/*.test.js",
-    "prepack": "npm run build",
+    "prepack": "npm run build && node dist/tools/prepare-word-bundle.js prepare",
+    "postpack": "node dist/tools/prepare-word-bundle.js restore",
     "probe": "npm run build && node dist/cli.js probe",
     "bridge:start": "npm run build && node dist/cli.js bridge start",
     "bridge:status": "npm run build && node dist/cli.js bridge status",
@@ -77,5 +78,13 @@
   "dependencies": {
     "mammoth": "^1.12.3",
     "pdfjs-dist": "^4.10.38"
-  }
+  },
+  "overrides": {
+    "mammoth": {
+      "argparse": "2.0.1"
+    }
+  },
+  "bundleDependencies": [
+    "mammoth"
+  ]
 }

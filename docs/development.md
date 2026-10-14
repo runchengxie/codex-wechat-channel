@@ -8,9 +8,15 @@ The project uses `pdfjs-dist` and `mammoth` to extract PDF and DOCX text. Develo
 
 ## Dependency security
 
-The 2026-10-12 registry audit reports the moderate [sprintf-js precision-specifier advisory](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) through `mammoth -> argparse -> sprintf-js`. No patched `sprintf-js` release is published. The suggested `mammoth@0.3.29` downgrade is incompatible with the current dependency contract and is not a remediation used by this project.
+The earlier audit reported three moderate nodes through `mammoth -> argparse -> sprintf-js` under [GHSA-hp3w-g68c-fv3c](https://github.com/advisories/GHSA-hp3w-g68c-fv3c). The project keeps Mammoth at the locked 1.12.3 release and overrides only its CLI parser to `argparse@2.0.1`, which does not depend on `sprintf-js`. This removes that chain rather than ignoring the advisory or downgrading Mammoth. `argparse` 3 rejects Mammoth's legacy API and is not used.
 
-DOCX extraction calls `mammoth.extractRawText({ buffer })` in `src/attachments.ts`. Mammoth imports `argparse` in its standalone CLI, which this application does not invoke. The advisory requires attacker-controlled format strings; no such path was identified in the current extraction flow. This assessment does not remove the installed vulnerable dependency or establish safety for other Mammoth entry points. Keep the finding visible, rerun the full audit, and review a compatible upstream fix when one is published. `npm audit --audit-level=high` passing still allows moderate findings.
+Compatibility tests exercise Mammoth's actual CLI help, paragraph/Unicode conversion, HTML/Markdown output, positional output paths, output directories, style maps and mutually exclusive arguments. Version 2 retains the old API with deprecation warnings; those warnings are not suppressed. Attachments still call `mammoth.extractRawText({ buffer })`, and their existing DOCX test retains the original text expectation and library-path dependency check.
+
+The source installation is locked by `package-lock.json`. [npm overrides](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#overrides) apply only at the installation root, so an override alone does not protect tarball consumers. The CLI package [bundles Mammoth and its dependencies](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#bundledependencies), including the validated parser and upstream licenses. `check:package` checks the parser version and absence of `sprintf-js` after installing the tarball, as well as the installed application CLI. Rebuild the bundle from a clean `npm ci` after dependency changes. Existing installations and earlier registry releases are unchanged until separately updated.
+
+Packaging temporarily changes only Mammoth's bundled `argparse` dependency declaration to the actual validated version. The library code and licenses are unchanged. `postpack` restores the upstream declaration from the source lock, and `check:package` also restores it in its cleanup path. The installed dependency tree must pass `npm ls --all`; a clean audit cannot substitute for a valid dependency tree.
+
+Rerun `npm audit` against both the source lock and a clean tarball installation after dependency changes. Passing `npm audit --audit-level=high` alone does not establish zero vulnerabilities. A clean advisory result also does not certify safety for every input file.
 
 ## Local checks
 
@@ -33,9 +39,3 @@ Pull requests and pushes to `main` in the public repository run the main checks 
 `audit:code` reports lines of code, function complexity, module dependencies, and static call relationships. See [maintenance audit](maintenance-audit.md) for metric definitions, limits, and data flow. Published source maps include corresponding TypeScript source for debugging. Generated `dist/`, coverage output, and runtime data are not committed to Git.
 
 See [feature status](plan-and-progress.md) for module responsibilities and current feature boundaries. Release records are in `releases/`; deployment results describe only the version recorded at the time.
-
-## Word parser dependency audit
-
-The locked Mammoth dependency includes `argparse` and `sprintf-js`. [GHSA-hp3w-g68c-fv3c](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) affects `sprintf-js` through 1.1.3 and has no published patched version as of 2026-10-14. The dependency audit reports three moderate affected nodes in this chain. Passing the high-severity gate does not mean the dependency tree is vulnerability-free.
-
-Attachments call `mammoth.extractRawText`, rather than Mammoth's CLI. The DOCX fixture checks paragraph and Unicode extraction and confirms that this tested library path does not load `argparse` or `sprintf-js`. This bounded check is not a security guarantee for all files or other callers. Keep the audit visible until a compatible upstream fix or validated replacement is available; do not downgrade Mammoth or override an incompatible dependency merely to clear the report.
