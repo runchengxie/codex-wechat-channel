@@ -8,9 +8,15 @@
 
 ## 依赖安全
 
-2026-10-12 的 registry 审计通过 `mammoth -> argparse -> sprintf-js` 报告了中危的 [sprintf-js 精度参数漏洞](https://github.com/advisories/GHSA-hp3w-g68c-fv3c)。目前没有发布修复后的 `sprintf-js` 版本。审计建议降级到 `mammoth@0.3.29`，但这不符合当前依赖契约，本项目不采用该建议。
+此前审计通过 `mammoth -> argparse -> sprintf-js` 报告了 [GHSA-hp3w-g68c-fv3c](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) 对应的 3 个中危节点。项目保留锁定的 Mammoth 1.12.3，仅将它的 CLI parser 覆盖为不依赖 `sprintf-js` 的 `argparse@2.0.1`，移除这条依赖链，不忽略漏洞，也不降级 Mammoth。`argparse` 3 不接受 Mammoth 的旧 API，因此未采用。
 
-DOCX 提取在 `src/attachments.ts` 中调用 `mammoth.extractRawText({ buffer })`。Mammoth 在独立 CLI 中导入 `argparse`，本应用不调用该 CLI。漏洞需要攻击者控制格式字符串，当前提取流程中未发现这条路径。这项分析不意味着已移除安装的漏洞依赖，也不保证其他 Mammoth 入口安全。保留审计发现，重新执行完整审计，并在上游发布兼容修复后复核。`npm audit --audit-level=high` 通过仍可能存在中危告警。
+兼容测试执行 Mammoth 的实际 CLI，检查帮助、段落与 Unicode、HTML/Markdown、位置输出路径、输出目录、样式映射和互斥参数。版本 2 保留旧 API，但会输出弃用警告，测试不隐藏这些警告。附件仍调用 `mammoth.extractRawText({ buffer })`，原有 DOCX 测试的文本预期和库路径依赖检查保持不变。
+
+源码安装由 `package-lock.json` 锁定。[npm overrides](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#overrides) 仅在安装根项目生效，单独覆盖依赖不能保护 tarball 消费者。因此该 CLI 包[随包携带 Mammoth 及其依赖](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#bundledependencies)，包括已验证 parser 和上游许可证。`check:package` 除检查安装后的应用 CLI，还确认实际 parser 版本及 `sprintf-js` 缺失。修改依赖后，须先干净执行 `npm ci`，再重新打包。已有安装和此前 registry 版本不会自动改变，需另行更新。
+
+打包时仅将 Mammoth 的 `argparse` 依赖声明临时同步为实际已验证版本，库代码与许可证不变。`postpack` 根据源码锁文件恢复上游声明，`check:package` 也在清理阶段恢复。安装后的依赖树必须通过 `npm ls --all`，无告警审计不能代替依赖树有效性检查。
+
+依赖修改后，应对源码锁文件和干净 tarball 安装分别执行 `npm audit`。仅通过 `npm audit --audit-level=high` 不表示零漏洞；审计无告警也不证明所有输入文件安全。
 
 ## 本地检查
 
@@ -33,9 +39,3 @@ git diff --check
 `audit:code` 报告代码行数、函数复杂度、模块依赖和静态调用关系。指标定义、局限和数据流见[代码维护检查](maintenance-audit.md)。发布的源映射包含对应 TypeScript 源码，便于定位问题。生成的 `dist/`、覆盖率结果和运行数据不提交到 Git。
 
 模块职责和当前功能边界见[功能现状](plan-and-progress.md)。发布记录保存在 `releases/`，其中的部署结果仅对应当时版本。
-
-## Word 解析依赖审计
-
-锁定的 Mammoth 依赖包含 `argparse` 和 `sprintf-js`。[GHSA-hp3w-g68c-fv3c](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) 影响 1.1.3 及以前的 `sprintf-js`，截至 2026-10-14 没有已发布修复版。依赖审计报告这条链上的 3 个 moderate 节点。高危门禁通过不代表依赖树没有漏洞。
-
-附件调用 `mammoth.extractRawText`，不调用 Mammoth CLI。DOCX fixture 检查段落和 Unicode 提取，并确认这条已测试的库调用路径不加载 `argparse` 或 `sprintf-js`。这个有限检查不能保证所有文件或其他调用者的安全。应继续显示审计结果，直到有兼容的上游修复或验证后的替代方案，不应只为清除告警而降级 Mammoth 或强制覆盖不兼容依赖。
