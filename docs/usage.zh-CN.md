@@ -15,7 +15,7 @@ node dist/cli.js start --cwd /path/to/repository
 
 `setup` 会显示扫码登录地址，登录信息保存在 `~/.codex/channels/wechat/account.json`。再次登录可使用 `node dist/cli.js setup --force`。未指定 `--cwd` 时，Codex 使用启动命令所在目录。
 
-可以使用 `--model MODEL` 选择默认模型，也可以通过 `--app-server-url WS_URL` 连接已有的 Codex app-server。内置 app-server 需要环境变量 `OPENAI_API_KEY`，或 `~/.codex/auth.json` 顶层的 `OPENAI_API_KEY` 字段。其他形式的 Codex 登录记录不能满足当前桥接程序的读取要求。其他选项见[配置与权限](configuration.zh-CN.md)。
+可以使用 `--model MODEL` 选择默认模型，通过 `--app-server-url WS_URL` 连接已有的 Codex app-server，或用 `--base-url URL` 设置微信 API 地址。启动权限选项为 `--sandbox MODE` 和 `--approval-policy POLICY`，详见[配置与权限](configuration.zh-CN.md)。内置 app-server 需要环境变量 `OPENAI_API_KEY`，或 `~/.codex/auth.json` 顶层的 `OPENAI_API_KEY` 字段。其他形式的 Codex 登录记录不能满足当前桥接程序的读取要求。
 
 ## 微信聊天命令
 

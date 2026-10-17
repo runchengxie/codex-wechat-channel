@@ -6,7 +6,7 @@ The bridge supports private chats with the WeChat iOS ClawBot. It accepts messag
 
 ## Sandbox permissions
 
-`CODEX_WECHAT_SANDBOX` accepts `read-only`, `workspace-write`, or `danger-full-access`. The default is `danger-full-access`. The `--sandbox` startup option also sets the mode. `CODEX_WECHAT_APPROVAL_POLICY` defaults to `never`, so the bridge does not wait for manual approval.
+`CODEX_WECHAT_SANDBOX` accepts `read-only`, `workspace-write`, or `danger-full-access`. The default is `danger-full-access`. The `start --sandbox MODE` option also sets the mode. `CODEX_WECHAT_APPROVAL_POLICY` defaults to `never`, so the bridge does not wait for manual approval; use `start --approval-policy POLICY` to override it.
 
 In WeChat, `/permissions` shows the current chat mode and the limit set when the service started. Commands such as `/permissions read-only` change the chat setting but cannot exceed the service limit. Settings are saved per chat and apply the next time that conversation is used. Lowering the service limit also constrains existing chat settings.
 
