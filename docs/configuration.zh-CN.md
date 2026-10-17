@@ -6,7 +6,7 @@
 
 ## 沙盒权限
 
-`CODEX_WECHAT_SANDBOX` 可设为 `read-only`、`workspace-write` 或 `danger-full-access`，默认是 `danger-full-access`。启动参数 `--sandbox` 也可设置模式。`CODEX_WECHAT_APPROVAL_POLICY` 默认是 `never`，桥接不会等待人工审批。请按使用场景设置服务权限。
+`CODEX_WECHAT_SANDBOX` 可设为 `read-only`、`workspace-write` 或 `danger-full-access`，默认是 `danger-full-access`。也可以用 `start --sandbox MODE` 设置模式。`CODEX_WECHAT_APPROVAL_POLICY` 默认是 `never`，桥接不会等待人工审批；可用 `start --approval-policy POLICY` 覆盖。请按使用场景设置服务权限。
 
 微信中的 `/permissions` 显示当前聊天的模式和服务启动时设置的上限。`/permissions read-only` 等命令可修改当前聊天的设置，不能超过服务上限。设置按聊天保存，下一次使用会话时生效。服务降低上限后，原有聊天设置也会受到新上限约束。
 

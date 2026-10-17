@@ -13,7 +13,7 @@ node dist/cli.js setup
 node dist/cli.js start --cwd /path/to/repository
 ```
 
-`setup` prints a sign-in URL. Account data is saved in `~/.codex/channels/wechat/account.json`. To sign in again, run `node dist/cli.js setup --force`. Without `--cwd`, Codex uses the directory from which the start command was run. Use `--model MODEL` to choose the default model or `--app-server-url WS_URL` to connect to an existing Codex app-server. The bundled app-server needs `OPENAI_API_KEY` or the top-level `OPENAI_API_KEY` field in `~/.codex/auth.json`.
+`setup` prints a sign-in URL. Account data is saved in `~/.codex/channels/wechat/account.json`. To sign in again, run `node dist/cli.js setup --force`. Without `--cwd`, Codex uses the directory from which the start command was run. Use `--model MODEL` to choose the default model, `--app-server-url WS_URL` to connect to an existing Codex app-server, or `--base-url URL` to set the WeChat API base URL. Startup permission options are `--sandbox MODE` and `--approval-policy POLICY`; see [configuration and permissions](configuration.md). The bundled app-server needs `OPENAI_API_KEY` or the top-level `OPENAI_API_KEY` field in `~/.codex/auth.json`.
 
 ## WeChat commands
 
@@ -58,7 +58,7 @@ codex-wechat-channel service status
 sudo codex-wechat-channel service uninstall
 ```
 
-The installer creates bridge and Codex configuration watcher services. The watcher requires `inotify-tools`; on Debian or Ubuntu the installer attempts to install it with `apt-get`. Changes to `~/.codex/config.toml`, `AGENTS.md`, `skills/`, or `prompts/` restart the bridge. Use `--user` and `--home` for a custom runtime user and home directory.
+The installer creates bridge and Codex configuration watcher services. The watcher requires `inotify-tools`; on Debian or Ubuntu the installer attempts to install it with `apt-get`. Changes to `~/.codex/config.toml`, `AGENTS.md`, `skills/`, or `prompts/` restart the bridge. Use `--user` and `--home` for a custom runtime user and home directory, or `--service-name` and `--watch-service-name` to choose unit names.
 
 ## Attachments and video
 

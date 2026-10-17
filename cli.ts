@@ -48,9 +48,11 @@ codex-wechat-channel
 Usage:
   codex-wechat-channel setup [--base-url URL] [--force]
   codex-wechat-channel start [--cwd DIR] [--model MODEL] [--app-server-url WS_URL]
+                                [--base-url URL] [--sandbox MODE] [--approval-policy POLICY]
   codex-wechat-channel probe
   codex-wechat-channel bridge <start|status|stop> [--cwd DIR] [--model MODEL]
   codex-wechat-channel service <install|status|uninstall> [--cwd DIR] [--user USER] [--home DIR]
+                                [--service-name NAME] [--watch-service-name NAME]
   codex-wechat-channel help
 
 Environment:
