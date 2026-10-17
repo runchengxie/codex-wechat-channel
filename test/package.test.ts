@@ -37,4 +37,6 @@ await test("the compiled CLI package entry prints help", () => {
   assert.match(output, /Usage:/);
   assert.match(output, /start .*--cwd DIR.*--model MODEL.*--app-server-url WS_URL/);
   assert.match(output, /--base-url URL.*--sandbox MODE.*--approval-policy POLICY/);
+  assert.match(output, /--service-name NAME/);
+  assert.match(output, /--watch-service-name NAME/);
 });

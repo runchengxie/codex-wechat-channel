@@ -60,7 +60,7 @@ codex-wechat-channel service status
 sudo codex-wechat-channel service uninstall
 ```
 
-安装命令会创建桥接和 Codex 配置监视服务。配置监视依赖 `inotify-tools`，在 Debian 或 Ubuntu 上安装器会尝试通过 `apt-get` 安装。修改 `~/.codex/config.toml`、`AGENTS.md`、`skills/` 或 `prompts/` 后，监视服务会重启桥接。自定义运行用户和主目录可使用 `--user`、`--home`。
+安装命令会创建桥接和 Codex 配置监视服务。配置监视依赖 `inotify-tools`，在 Debian 或 Ubuntu 上安装器会尝试通过 `apt-get` 安装。修改 `~/.codex/config.toml`、`AGENTS.md`、`skills/` 或 `prompts/` 后，监视服务会重启桥接。可用 `--user`、`--home` 指定运行用户和主目录，也可用 `--service-name`、`--watch-service-name` 设置 systemd 单元名称。
 
 ## 附件处理
 

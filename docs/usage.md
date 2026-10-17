@@ -58,7 +58,7 @@ codex-wechat-channel service status
 sudo codex-wechat-channel service uninstall
 ```
 
-The installer creates bridge and Codex configuration watcher services. The watcher requires `inotify-tools`; on Debian or Ubuntu the installer attempts to install it with `apt-get`. Changes to `~/.codex/config.toml`, `AGENTS.md`, `skills/`, or `prompts/` restart the bridge. Use `--user` and `--home` for a custom runtime user and home directory.
+The installer creates bridge and Codex configuration watcher services. The watcher requires `inotify-tools`; on Debian or Ubuntu the installer attempts to install it with `apt-get`. Changes to `~/.codex/config.toml`, `AGENTS.md`, `skills/`, or `prompts/` restart the bridge. Use `--user` and `--home` for a custom runtime user and home directory, or `--service-name` and `--watch-service-name` to choose unit names.
 
 ## Attachments and video
 

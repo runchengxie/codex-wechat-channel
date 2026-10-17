@@ -52,6 +52,7 @@ Usage:
   codex-wechat-channel probe
   codex-wechat-channel bridge <start|status|stop> [--cwd DIR] [--model MODEL]
   codex-wechat-channel service <install|status|uninstall> [--cwd DIR] [--user USER] [--home DIR]
+                                [--service-name NAME] [--watch-service-name NAME]
   codex-wechat-channel help
 
 Environment:
