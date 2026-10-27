@@ -38,4 +38,4 @@ git diff --check
 
 `audit:code` 报告代码行数、函数复杂度、模块依赖和静态调用关系。指标定义、局限和数据流见[代码维护检查](maintenance-audit.md)。发布的源映射包含对应 TypeScript 源码，便于定位问题。生成的 `dist/`、覆盖率结果和运行数据不提交到 Git。
 
-模块职责和当前功能边界见[功能现状](plan-and-progress.md)。发布记录保存在 `releases/`，其中的部署结果仅对应当时版本。
+模块职责和当前功能边界见[功能现状](plan-and-progress.zh-CN.md)。发布记录保存在 `releases/`，其中的部署结果仅对应当时版本。

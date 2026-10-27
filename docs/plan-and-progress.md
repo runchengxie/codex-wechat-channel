@@ -1,49 +1,49 @@
-# 方案与功能现状
+# Feature status
 
-## 项目目标
+[简体中文](plan-and-progress.zh-CN.md)
 
-把微信 ClawBot 接入 Codex，让私聊消息能够使用独立的 Codex 会话。
+The bridge connects WeChat ClawBot private messages to separate Codex sessions.
 
-## 工作流程
+## Message flow
 
 ```text
-微信 ClawBot
-  -> 微信 ilink API
+WeChat ClawBot
+  -> WeChat ilink API
   -> codex-wechat-channel
   -> Codex app-server
-  -> 每个聊天对应的 Codex 会话
-  -> 微信文本回复
+  -> a Codex session for each chat
+  -> WeChat text reply
 ```
 
-程序直接启动或连接 Codex app-server。微信消息不会经过 Codex CLI 的终端命令解析器，因此项目在桥接端实现了 `/model`、`/new`、`/review` 等聊天命令。
+The bridge starts or connects to Codex app-server directly. Messages do not pass through the Codex CLI terminal command parser, so the bridge implements chat commands such as `/model`, `/new`, and `/review` itself.
 
-## 模块职责
+## Module responsibilities
 
-- `src/wechat-api.ts`：扫码登录、消息轮询、文本收发、媒体下载与解密、消息内容提取。
-- `src/attachments.ts`：文本、PDF、DOCX 提取，视频时长检查、抽帧和音轨提取。
-- `src/codex-app-server.ts`：启动或连接 app-server，管理 会话、回合 和模型请求。
-- `src/start.ts`：消息轮询、会话映射、同一聊天的消息排队和回复处理。
-- `src/commands.ts`：解析并执行微信聊天命令。
-- `src/protocol.ts`、`src/wechat-types.ts`、`src/thread-store.ts`：边界数据校验和会话状态类型。
-- `src/update-batch.ts`：批次完成后的游标保存。
-- `src/setup.ts`：交互式扫码登录和凭据保存。
-- `scripts/bridgectl.ts`：后台进程启停与状态查看。
-- `scripts/servicectl.ts`、`scripts/watch-codex-config.sh`：Linux systemd 服务安装及配置监视。
+- `src/wechat-api.ts`: QR login, polling, text messages, media download and decryption, and content extraction.
+- `src/attachments.ts`: text, PDF and DOCX extraction, video duration checks, frames and audio extraction.
+- `src/codex-app-server.ts`: app-server connections, sessions, turns and model requests.
+- `src/start.ts`: polling, chat-to-session mapping, per-chat queues and replies.
+- `src/commands.ts`: chat command parsing and execution.
+- `src/protocol.ts`, `src/wechat-types.ts`, `src/thread-store.ts`: boundary validation and session-state types.
+- `src/update-batch.ts`: cursor persistence after a completed batch.
+- `src/setup.ts`: interactive QR login and credential persistence.
+- `scripts/bridgectl.ts`: background process start, stop and status.
+- `scripts/servicectl.ts`, `scripts/watch-codex-config.sh`: Linux systemd installation and configuration monitoring.
 
-## 当前功能
+## Supported behavior
 
-- 微信扫码登录，长轮询收取消息并发送文本回复。
-- 将图片下载、解密后传给 Codex。
-- 下载并解密 txt、md、csv、json、pdf、docx 附件，将提取的文本交给 Codex。单份文件最多下载 25 MiB，发送内容最多 100,000 个字符。PDF 最多处理前 100 页，不做 OCR。DOCX 以纯文本方式提取。
-- 下载并解密视频，使用系统中的 `ffprobe` 检查时长，再由 `ffmpeg` 抽取最多 6 帧及可用音轨交给 Codex。视频最多 25 MiB、180 秒，抽帧尺寸不超过 768 × 768。音轨转成单声道、16 kHz、32 kbps MP3，最多 8 MiB。视频和派生媒体只在处理期间保存在本地，回合结束后清理。
-- 使用微信提供的语音转写文本。没有转写文本时不做语音识别。
-- 按聊天保存 会话、模型、推理强度和工作目录，并保留最近使用的 会话。
-- 当前微信 iOS ClawBot 接入方式支持私聊。桥接会处理送达该账号的入站消息，不提供发送者白名单配置。
-- 后台运行、健康探测，以及 Linux systemd 安装和配置变化后的自动重启。
+- QR login, long polling and text replies.
+- Downloading and decrypting images for Codex.
+- Text extraction from txt, md, csv, json, pdf and docx attachments. Each download is limited to 25 MiB and extracted content to 100,000 characters. PDF extraction reads at most 100 pages without OCR. DOCX extraction produces plain text.
+- Video download and decryption, duration checks through system `ffprobe`, and extraction of up to six frames and available audio through `ffmpeg`. Videos are limited to 25 MiB and 180 seconds; frames fit within 768 × 768. Audio becomes mono 16 kHz, 32 kbps MP3 with an 8 MiB limit. Video and derived media are temporary and removed after the turn.
+- Using voice transcripts supplied by WeChat. The bridge does not transcribe audio when no transcript is supplied.
+- Per-chat sessions, model, reasoning effort and working directory, with recent session history.
+- Private chats through the current WeChat iOS ClawBot integration. The bridge handles inbound messages delivered to the account and has no sender allowlist setting.
+- Background operation, health probes, Linux systemd installation and automatic restart after configuration changes.
 
-## 构建与检查
+## Build and verification
 
-源码和测试使用 TypeScript，`tsc` 生成 `dist/` 内的 ESM JavaScript。微信消息、Codex 响应和本地 JSON 文件经过字段校验后进入程序。PDF 和 DOCX 使用 `pdfjs-dist`、`mammoth` 提取文本。视频处理调用系统安装的 `ffmpeg` 和 `ffprobe`，缺少工具或格式不受支持时，Codex 仍会收到视频消息信息和处理失败说明。
+Runtime and tests use TypeScript, compiled by `tsc` into ESM JavaScript under `dist/`. WeChat messages, Codex responses and local JSON pass field validation. PDF and DOCX extraction use `pdfjs-dist` and `mammoth`. Video processing calls system `ffmpeg` and `ffprobe`; missing tools or unsupported formats leave Codex with the video message information and an extraction failure description.
 
 ```bash
 npm ci
@@ -56,19 +56,19 @@ npm run check:package
 bash -n scripts/watch-codex-config.sh
 ```
 
-测试从 `dist/test/` 执行，覆盖聊天命令、批次游标、app-server 通知与重连、微信请求、图片和附件解密、PDF 与 DOCX 文本提取、视频抽帧和音轨参数、登录凭证保存、启动关停及后台服务控制。涉及网络、媒体命令和系统进程时使用替身，systemd 安装只检查生成文本和命令参数，没有在测试中安装服务。
+Compiled tests run from `dist/test/`. They cover commands, batch cursors, app-server notifications and reconnection, WeChat requests, decryption, document extraction, video arguments, credential saving, lifecycle and service control. Network, media commands and system processes use substitutes. Systemd tests check generated text and command arguments without installing a service.
 
-覆盖率包含 CLI、全部 `src/` 和 Node 服务脚本。行、分支、函数下限分别为 70%、60%、60%，报告还必须包含全部生产文件。GitHub Actions 在 Node.js 22、24 上执行同样的检查。包检查会离线安装实际 tarball 并运行 CLI。
+Coverage includes the CLI, every `src/` module and Node service scripts. Line, branch and function floors are 70%, 60% and 60%; the report must include every production file. GitHub Actions runs checks on Node.js 22 and 24. Package checks install the actual tarball and execute its CLI; installation requires npm registry access.
 
-复杂度报告区分静态可解析关系和未解析调用，不能单凭它删除代码。详细定义与复现方法见[代码维护检查](maintenance-audit.md)。`docs/releases/` 保存历史发布记录，其真实部署结果不代表当前代码已重新完成微信或 systemd 验收。
+The complexity report distinguishes resolved and unresolved calls and cannot alone justify code deletion. See [maintenance metrics](maintenance-audit.md). Historical records under `docs/releases/` do not establish that the current version passed real WeChat or systemd acceptance checks.
 
-## 目前没有的功能
+## Unsupported features
 
-- 群聊支持。当前接入的微信 iOS ClawBot 只支持私聊。
-- 扫描版 PDF 的 OCR。
-- 旧版 `.doc`、`.xlsx`、`.pptx` 等 Office 格式解析。
-- 微信语音识别。仅使用微信消息中已有的转写结果。
+- Group chats in the current WeChat iOS ClawBot integration.
+- OCR for scanned PDFs.
+- Legacy `.doc`, `.xlsx`, `.pptx` and other Office format extraction.
+- WeChat speech recognition beyond the transcript already present in a message.
 
-## 聊天权限设置
+## Chat permissions
 
-`/permissions` 查看当前聊天的沙盒模式和服务权限上限。带上 `read-only`、`workspace-write` 或 `danger-full-access` 可保存新模式，下一次使用会话时应用。设置按聊天隔离，保留已有上下文，`/new` 沿用该设置。服务以更低权限重启后，实际权限受新的上限限制。
+`/permissions` shows the chat sandbox mode and service ceiling. Supplying `read-only`, `workspace-write` or `danger-full-access` saves a mode for the next session use. The setting is isolated per chat, preserves context and carries into `/new`. Restarting the service with a lower ceiling constrains the effective permissions.
