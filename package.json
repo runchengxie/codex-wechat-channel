@@ -12,6 +12,7 @@
     "dist/src/",
     "dist/scripts/",
     "docs/plan-and-progress.md",
+    "docs/plan-and-progress.zh-CN.md",
     "docs/usage.md",
     "docs/usage.zh-CN.md",
     "docs/configuration.md",
