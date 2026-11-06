@@ -16,6 +16,8 @@ The source installation is locked by `package-lock.json`. [npm overrides](https:
 
 Packaging temporarily changes only Mammoth's bundled `argparse` dependency declaration to the actual validated version. The library code and licenses are unchanged. `postpack` restores the upstream declaration from the source lock, and `check:package` also restores it in its cleanup path. The installed dependency tree must pass `npm ls --all`; a clean audit cannot substitute for a valid dependency tree.
 
+The 2026-11-06 source-lock audit reports 13 moderate development-toolchain nodes and no high or critical findings. These are two root advisories, [glob cancellation bypass](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) and [minimatch amplification](https://github.com/advisories/GHSA-g3hv-75wg-m249), plus their dependent nodes. The fixed versions start at glob 14.0.2 and minimatch 11.0.1; the current c8/test-exclude and ESLint toolchains still request glob 13 or minimatch 10. The published tool updates checked on that date do not provide an in-range repair. npm's suggested downgrades conflict with the current TypeScript 6 / ESLint 10 toolchain or retain an affected transitive version. Keep the findings visible and recheck compatible releases; do not treat `npm audit fix --force` or a cross-major override as a verified repair. Revalidate the full coverage and package checks before accepting a dependency solution.
+
 Rerun `npm audit` against both the source lock and a clean tarball installation after dependency changes. Passing `npm audit --audit-level=high` alone does not establish zero vulnerabilities. A clean advisory result also does not certify safety for every input file.
 
 ## Local checks
