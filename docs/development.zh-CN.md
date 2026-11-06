@@ -16,6 +16,8 @@
 
 打包时仅将 Mammoth 的 `argparse` 依赖声明临时同步为实际已验证版本，库代码与许可证不变。`postpack` 根据源码锁文件恢复上游声明，`check:package` 也在清理阶段恢复。安装后的依赖树必须通过 `npm ls --all`，无告警审计不能代替依赖树有效性检查。
 
+2026-11-06 的源码锁文件审计报告 13 个开发工具链中危节点，没有 high 或 critical 告警。其中根告警为 [glob 文件遍历取消失效](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4)和 [minimatch 匹配计算量放大](https://github.com/advisories/GHSA-g3hv-75wg-m249)，其余是依赖传播节点。修复版本分别从 glob 14.0.2、minimatch 11.0.1 开始，但当前 c8/test-exclude 与 ESLint 工具链仍要求 glob 13 或 minimatch 10。当日核查的已发布工具更新没有提供声明范围内的修复；npm 建议的降级方案与当前 TypeScript 6 / ESLint 10 工具链冲突，或仍保留受影响的传递版本。应保留告警并继续核查兼容版本，不能把 `npm audit fix --force` 或跨 major 覆盖当作已经验证的修复。接受依赖修复前，必须重验完整覆盖率和打包检查。
+
 依赖修改后，应对源码锁文件和干净 tarball 安装分别执行 `npm audit`。仅通过 `npm audit --audit-level=high` 不表示零漏洞；审计无告警也不证明所有输入文件安全。
 
 ## 本地检查
